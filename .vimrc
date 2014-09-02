@@ -16,27 +16,28 @@ set rtp+=~/.vim/bundle/Vundle.vim
 call vundle#begin()
 
 " let Vundle manage Vundle, required
-Bundle 'gmarik/vundle'
+Plugin 'gmarik/vundle'
 
 " My bundles
-Bundle 'Vim-R-plugin'
-Bundle 'bling/vim-airline'
-Bundle 'kien/ctrlp.vim'
-Bundle 'Lokaltog/vim-easymotion'
-Bundle 'tpope/vim-surround'
-Bundle 'scrooloose/syntastic'
-Bundle 'scrooloose/nerdcommenter'
-Bundle 'scrooloose/nerdtree'
-Bundle 'tpope/vim-fugitive'
-Bundle 'chrisbra/csv.vim'
+Plugin 'Vim-R-plugin'
+Plugin 'bling/vim-airline'
+Plugin 'kien/ctrlp.vim'
+Plugin 'Lokaltog/vim-easymotion'
+Plugin 'tpope/vim-surround'
+Plugin 'scrooloose/syntastic'
+Plugin 'scrooloose/nerdcommenter'
+Plugin 'scrooloose/nerdtree'
+Plugin 'tpope/vim-fugitive'
+Plugin 'chrisbra/csv.vim'
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
-if filereadable('~/.personal')
-    Bundle 'kchmck/vim-coffee-script'
-    Bundle 'ivanov/vim-ipython'
-    Bundle 'xolox/vim-misc'
-    Bundle 'xolox/vim-notes'
-    Bundle 'suan/vim-instant-markdown'
+if filereadable(expand('~/.personal'))
+"if 1
+    Plugin 'kchmck/vim-coffee-script'
+    Plugin 'ivanov/vim-ipython'
+    Plugin 'xolox/vim-misc'
+    Plugin 'xolox/vim-notes'
+    Plugin 'suan/vim-instant-markdown'
 endif
 
 call vundle#end()
@@ -171,7 +172,7 @@ autocmd InsertLeave,WinLeave * if exists('w:last_fdm') | let &l:foldmethod=w:las
 " fix broken markdown extension
 autocmd BufNewFile,BufRead *.md set filetype=markdown
 
-if filereadable('~/.personal')
+if filereadable(expand('~/.personal'))
     " notes.vim
     :let g:notes_directories=['~/Dropbox/notes']
     :let g:notes_suffix='.txt'
