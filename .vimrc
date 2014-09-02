@@ -12,8 +12,8 @@ set nocompatible
 filetype off
 
 " set the runtime path to include Vundle and initialize
-set rtp+=~/.vim/bundle/vundle/
-call vundle#rc()
+set rtp+=~/.vim/bundle/Vundle.vim
+call vundle#begin()
 
 " let Vundle manage Vundle, required
 Bundle 'gmarik/vundle'
@@ -38,6 +38,8 @@ if filereadable('~/.personal')
     Bundle 'xolox/vim-notes'
     Bundle 'suan/vim-instant-markdown'
 endif
+
+call vundle#end()
 
 " Attempt to determine the type of a file based on its name and possibly its
 " contents. Use this to allow intelligent auto-indenting for each filetype,
