@@ -77,15 +77,15 @@ export PATH=$HOME/bin:/usr/local/bin:/usr/local/sbin:$PATH
 # my settings
 
 # source /etc/profile
-source /opt/local/bin/virtualenvwrapper.sh
+#source /opt/local/bin/virtualenvwrapper.sh
 
 # Python 2.7?
 # export PATH=/opt/local/Library/Frameworks/Python.framework/Versions/2.7/bin:/Library/Frameworks/Python.framework/Versions/2.7/bin:${PATH}
 # MacPorts?
-export PATH=/opt/local/bin:/opt/local/sbin:$PATH
+#export PATH=/opt/local/bin:/opt/local/sbin:$PATH
 
 # add cabal to path
-export PATH=~/Library/Haskell/bin:$PATH
+#export PATH=~/Library/Haskell/bin:$PATH
 
 # something about ruby?
 [[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm" # Load RVM into a shell session *as a function*
