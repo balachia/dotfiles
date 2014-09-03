@@ -154,6 +154,7 @@ set nofoldenable
 :nmap ; :CtrlPBuffer<CR>
 
 " airline theme
+set encoding=utf-8
 set termencoding=utf-8
 let g:airline_powerline_fonts = 1
 
