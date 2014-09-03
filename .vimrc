@@ -29,10 +29,10 @@ Plugin 'scrooloose/nerdcommenter'
 Plugin 'scrooloose/nerdtree'
 Plugin 'tpope/vim-fugitive'
 Plugin 'chrisbra/csv.vim'
+Plugin 'edkolev/tmuxline.vim'
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
 if filereadable(expand('~/.personal'))
-"if 1
     Plugin 'kchmck/vim-coffee-script'
     Plugin 'ivanov/vim-ipython'
     Plugin 'xolox/vim-misc'
@@ -154,6 +154,7 @@ set nofoldenable
 :nmap ; :CtrlPBuffer<CR>
 
 " airline theme
+let g:airline_powerline_fonts = 1
 
 " kill buffer, not window
 command! Bd bp | sp | bn | bd
