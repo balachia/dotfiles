@@ -5,7 +5,11 @@ export ZSH=$HOME/.oh-my-zsh
 # Look in ~/.oh-my-zsh/themes/
 # Optionally, if you set this to "random", it'll load a random theme each
 # time that oh-my-zsh is loaded.
-ZSH_THEME="robbyrussell"
+#ZSH_THEME="robbyrussell"
+ZSH_THEME="michelebologna"
+#ZSH_THEME="maran"
+#ZSH_THEME="dpoggi"
+ZSH_THEME="dieter"
 
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
