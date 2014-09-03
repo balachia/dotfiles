@@ -154,6 +154,7 @@ set nofoldenable
 :nmap ; :CtrlPBuffer<CR>
 
 " airline theme
+set termencoding=utf-8
 let g:airline_powerline_fonts = 1
 
 " kill buffer, not window
