@@ -20,7 +20,8 @@ Plugin 'gmarik/vundle'
 
 " My bundles
 Plugin 'Vim-R-plugin'
-Plugin 'bling/vim-airline'
+"Plugin 'bling/vim-airline'
+Plugin 'itchyny/lightline.vim'
 Plugin 'kien/ctrlp.vim'
 Plugin 'Lokaltog/vim-easymotion'
 Plugin 'tpope/vim-surround'
@@ -157,6 +158,11 @@ set nofoldenable
 set encoding=utf-8
 set termencoding=utf-8
 let g:airline_powerline_fonts = 1
+
+" lightline theme
+let g:lightline = {
+            \ 'colorscheme': 'landscape',
+            \ }
 
 " kill buffer, not window
 command! Bd bp | sp | bn | bd
