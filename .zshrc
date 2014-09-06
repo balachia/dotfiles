@@ -94,7 +94,7 @@ export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:$PATH
 # for tmuxinator, must set default editor
 # probably for other things too...
 export EDITOR='vim'
-[[ $HOST =~ ".stanford.edu" ]] && export PATH=~/.gem/ruby/1.9.1:$PATH
+[[ $HOST =~ ".stanford.edu" ]] && export PATH=~/.gem/ruby/1.9.1/bin:$PATH
 
 # something about ruby?
 [[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm" # Load RVM into a shell session *as a function*
