@@ -32,6 +32,8 @@ Plugin 'tpope/vim-fugitive'
 Plugin 'tpope/vim-unimpaired'
 Plugin 'chrisbra/csv.vim'
 "Plugin 'edkolev/tmuxline.vim'
+Plugin 'vim-pandoc/vim-pandoc'
+Plugin 'vim-pandoc/vim-pandoc-syntax'
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
 if filereadable(expand('~/.personal'))
@@ -174,6 +176,9 @@ let g:lightline = {
             \   'fugitive': '(exists("*fugitive#head") && ""!=fugitive#head())'
             \ }
             \ }
+
+" pandoc shit
+let g:pandoc#biblio#bibs = [expand('~/Documents/library.bib')]
 
 " kill buffer, not window
 command! Bd bp | sp | bn | bd
