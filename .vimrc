@@ -213,3 +213,21 @@ if os == 'Darwin'
     vmap <C-x> :!pbcopy<CR>  
     vmap <C-c> :w !pbcopy<CR><CR> 
 endif
+
+" knitr bootstrap
+function! RMakeHTML_2()
+  update
+  call RSetWD()
+  let filename = expand("%:r:t")
+  let rcmd = 'require("knitrBootstrap");
+              \ require("rmarkdown");
+              \ render("' . filename . '.Rmd", "knitrBootstrap::bootstrap_document")'
+  if g:vimrplugin_openhtml
+    let rcmd = rcmd . '; browseURL("' . filename . '.html")'
+  endif
+  call g:SendCmdToR(rcmd)
+endfunction
+
+"bind RMakeHTML_2 to leader kk
+nnoremap <silent> <Leader>kk :call RMakeHTML_2()<CR>
+
