@@ -89,7 +89,7 @@ export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:$PATH
 #export PATH=/opt/local/bin:/opt/local/sbin:$PATH
 
 # add cabal to path
-export PATH=~/.cabal/bin:$PATH
+export PATH=~/Library/Haskell/bin:~/.cabal/bin:$PATH
 #export PATH=~/Library/Haskell/bin:$PATH
 
 # for tmuxinator, must set default editor
