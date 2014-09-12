@@ -180,6 +180,7 @@ let g:lightline = {
 
 " pandoc shit
 let g:pandoc#biblio#bibs = [expand('~/Documents/library.bib')]
+let g:pandoc#biblio#use_bibtool = 1
 
 " kill buffer, not window
 command! Bd bp | sp | bn | bd
