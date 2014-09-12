@@ -33,7 +33,8 @@ Plugin 'tpope/vim-unimpaired'
 Plugin 'chrisbra/csv.vim'
 "Plugin 'edkolev/tmuxline.vim'
 Plugin 'vim-pandoc/vim-pandoc'
-Plugin 'vim-pandoc/vim-pandoc-syntax'
+"Plugin 'vim-pandoc/vim-pandoc-syntax'
+Plugin 'vim-pandoc/vim-rmarkdown'
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
 if filereadable(expand('~/.personal'))
@@ -214,6 +215,56 @@ if os == 'Darwin'
     vmap <C-c> :w !pbcopy<CR><CR> 
 endif
 
+" hijack vim-r-plugin autocompletion for Rmd files
+" probably the right way to do this is to fork vim-r-plugin
+function! RmdOmnifunc(findstart, base)
+    if RmdIsInRCode(0) == 1
+        let res = rcomplete#CompleteR(a:findstart, a:base)
+        return res
+    else
+        let res = pandoc#completion#Complete(a:findstart, a:base)
+        return res
+    endif
+endfunction
+
+autocmd BufNewFile,BufRead *.Rmd setlocal omnifunc=RmdOmnifunc
+
+
+
+" custom knitr/pandoc configurations
+function! FancyRmd2Pdf()
+    update
+    call RSetWD()
+    let filename = expand("%:r:t")
+    
+    let pandoc_cmd = 'system2("pandoc",
+                \ args=c(
+                \"-r markdown+simple_tables+table_captions+yaml_metadata_block",
+                \"-s","-S","--latex-engine=pdflatex",
+                \"--filter=pandoc-citeproc",
+                \"-o ' . filename . '.pdf",
+                \"' . filename . '.md",
+                \"~/.pandoc/yaml.default"
+                \))'
+
+    let pandoc_cmd = 'system2("pandoc",
+                \ args=c(
+                \"-r markdown+simple_tables+table_captions+yaml_metadata_block",
+                \"--filter pandoc-citeproc",
+                \"-o ' . filename . '.pdf",
+                \"' . filename . '.md",
+                \"~/.pandoc/yaml.default"
+                \))'
+    
+    let rcmd = 'require("knitr");
+                \ knit("' . filename . '.Rmd");
+                \ ' . pandoc_cmd
+    call g:SendCmdToR(rcmd)
+endfunction
+
+nnoremap <silent> <Leader>kk :call FancyRmd2Pdf()<CR>
+
+
 " knitr bootstrap
 function! RMakeHTML_2()
   update
@@ -229,5 +280,5 @@ function! RMakeHTML_2()
 endfunction
 
 "bind RMakeHTML_2 to leader kk
-nnoremap <silent> <Leader>kk :call RMakeHTML_2()<CR>
+"nnoremap <silent> <Leader>kk :call RMakeHTML_2()<CR>
 
