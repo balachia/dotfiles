@@ -40,6 +40,8 @@ Plugin 'vim-pandoc/vim-rmarkdown'
 if filereadable(expand('~/.personal'))
     Plugin 'kchmck/vim-coffee-script'
     Plugin 'ivanov/vim-ipython'
+    "Plugin 'benmills/vimux'
+    Plugin 'jpalardy/vim-slime'
     Plugin 'xolox/vim-misc'
     Plugin 'xolox/vim-notes'
     Plugin 'suan/vim-instant-markdown'
@@ -181,6 +183,11 @@ let g:lightline = {
 " pandoc shit
 let g:pandoc#biblio#bibs = [expand('~/Documents/library.bib')]
 let g:pandoc#biblio#use_bibtool = 1
+
+" vim-slime stuff
+let g:slime_target = "tmux"
+let g:slime_default_config = {"socket_name": "default", "target_pane": ".1"}
+let g:slime_python_ipython = 1
 
 " kill buffer, not window
 command! Bd bp | sp | bn | bd
