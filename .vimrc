@@ -193,8 +193,8 @@ let g:slime_default_config = {"socket_name": "default", "target_pane": ".1"}
 " slimux configuration
 map <Leader>l :SlimuxREPLSendLine<CR>
 vmap <Leader>l :SlimuxREPLSendSelection<CR>
-map <Leader>a :SlimuxShellLast<CR>
-map <Leader>k :SlimuxSendKeysLast<CR>
+"map <Leader>a :SlimuxShellLast<CR>
+"map <Leader>k :SlimuxSendKeysLast<CR>
 
 " kill buffer, not window
 command! Bd bp | sp | bn | bd
