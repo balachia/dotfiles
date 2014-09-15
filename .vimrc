@@ -34,14 +34,15 @@ Plugin 'chrisbra/csv.vim'
 "Plugin 'edkolev/tmuxline.vim'
 Plugin 'vim-pandoc/vim-pandoc'
 "Plugin 'vim-pandoc/vim-pandoc-syntax'
-Plugin 'vim-pandoc/vim-rmarkdown'
+"Plugin 'vim-pandoc/vim-rmarkdown'
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
 if filereadable(expand('~/.personal'))
     Plugin 'kchmck/vim-coffee-script'
-    Plugin 'ivanov/vim-ipython'
+    "Plugin 'ivanov/vim-ipython'
     "Plugin 'benmills/vimux'
-    Plugin 'jpalardy/vim-slime'
+    "Plugin 'jpalardy/vim-slime'
+    Plugin 'epeli/slimux'
     Plugin 'xolox/vim-misc'
     Plugin 'xolox/vim-notes'
     Plugin 'suan/vim-instant-markdown'
@@ -187,7 +188,13 @@ let g:pandoc#biblio#use_bibtool = 1
 " vim-slime stuff
 let g:slime_target = "tmux"
 let g:slime_default_config = {"socket_name": "default", "target_pane": ".1"}
-let g:slime_python_ipython = 1
+"let g:slime_python_ipython = 1
+
+" slimux configuration
+map <Leader>l :SlimuxREPLSendLine<CR>
+vmap <Leader>l :SlimuxREPLSendSelection<CR>
+map <Leader>a :SlimuxShellLast<CR>
+map <Leader>k :SlimuxSendKeysLast<CR>
 
 " kill buffer, not window
 command! Bd bp | sp | bn | bd
