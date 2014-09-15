@@ -182,7 +182,7 @@ let g:lightline = {
             \ }
 
 " pandoc shit
-let g:pandoc#biblio#bibs = [expand('~/Documents/library.bib')]
+let g:pandoc#biblio#bibs = [expand('~/Documents/library-clean.bib')]
 let g:pandoc#biblio#use_bibtool = 1
 
 " vim-slime stuff
