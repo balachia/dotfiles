@@ -33,7 +33,7 @@ Plugin 'tpope/vim-unimpaired'
 Plugin 'chrisbra/csv.vim'
 "Plugin 'edkolev/tmuxline.vim'
 Plugin 'vim-pandoc/vim-pandoc'
-"Plugin 'vim-pandoc/vim-pandoc-syntax'
+Plugin 'vim-pandoc/vim-pandoc-syntax'
 "Plugin 'vim-pandoc/vim-rmarkdown'
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
