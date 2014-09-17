@@ -1,0 +1,72 @@
+__ignore__:
+    r: markdown+simple_tables+table_captions+yaml_metadata_block
+
+__default__:
+    s:
+    S:
+    r: markdown+simple_tables+table_captions+yaml_metadata_block
+    bibliography: ~/Documents/library-clean.bib
+    filter: pandoc-citeproc
+
+rst:
+    o: '%.rst'
+    t: rst
+    __clear__:
+        - filter
+        - bibliography
+
+pandoc-native:
+    o: '%.native.txt'
+    t: native
+
+reftest:
+    o: '%.makeref.txt'
+    t: native
+    filter:
+        - pandoc-citeproc
+        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-internalref
+        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-dropinenv
+
+pandoc-json:
+    o: '%.json.txt'
+    t: json
+
+latex:
+    o: '%.tex'
+    latex-engine: pdflatex
+    filter:
+        - pandoc-citeproc
+        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-internalref
+        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-dropinenv
+    listings:
+
+pdf:
+    __inherits__: latex
+    o: '%.pdf'
+
+pdfpp:
+    __inherits__: latex
+    o: '%.tex'
+    latex-engine: lualatex
+    __pre__:
+        - gpp -H %.md -o %.gpp.md
+    __in__:
+        - '%.gpp.md'
+    __post__:
+        - python ~/Dropbox/Code/misc/pandoc-filters/pandoc-postprocess.py %.tex
+#        - pdflatex -interaction=batchmode %.tex
+#        - pdflatex -interaction=batchmode %.tex
+        - lualatex %.tex
+        - lualatex %.tex
+        - rm %.out %.aux %.log
+
+html:
+    self-contained:
+    template: default.html
+    filter:
+        - pandoc-citeproc
+        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-internalref
+    css:
+        - ~/.pandoc/bootstrap/css/bootstrap.min.css
+    o: '%.html'
+
