@@ -212,12 +212,14 @@ autocmd InsertLeave,WinLeave * if exists('w:last_fdm') | let &l:foldmethod=w:las
 
 " fix broken markdown extension
 autocmd BufNewFile,BufRead *.md set filetype=markdown
+autocmd FileType pandoc setlocal tw=80 formatoptions+=t
 
 if filereadable(expand('~/.personal'))
     " notes.vim
-    :let g:notes_directories=['~/Dropbox/notes']
-    :let g:notes_suffix='.txt'
-    :let g:notes_markdown_program='pandoc'
+    let g:notes_directories=['~/Dropbox/notes']
+    let g:notes_suffix='.txt'
+    let g:notes_markdown_program='pandoc'
+    let g:notes_unicode_enabled = 0
 
     " markdown preview
     let g:instant_markdown_slow = 1
