@@ -218,7 +218,8 @@ if filereadable(expand('~/.personal'))
     " notes.vim
     let g:notes_directories=['~/Dropbox/notes']
     let g:notes_suffix='.txt'
-    let g:notes_markdown_program='pandoc'
+    "let g:notes_markdown_program='pandoc'
+    let g:notes_markdown_program='panopynotes.sh'
     let g:notes_unicode_enabled = 0
 
     " markdown preview

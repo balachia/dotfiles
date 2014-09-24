@@ -1,7 +1,7 @@
 __default__:
     s:
     S:
-    r: markdown+simple_tables+table_captions+yaml_metadata_block
+    r: markdown+simple_tables+table_captions+yaml_metadata_block+tex_math_double_backslash
     bibliography: ~/Documents/library-clean.bib
     filter: pandoc-citeproc
 
@@ -67,4 +67,11 @@ html:
     css:
         - ~/.pandoc/bootstrap/css/bootstrap.min.css
     o: '%.html'
+
+notehtml:
+    __inherits__: html
+    __clear__:
+        - o
+        - S
+    mathjax:
 
