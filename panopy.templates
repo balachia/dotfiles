@@ -41,37 +41,58 @@ pdf:
     __inherits__: latex
     o: '%.pdf'
 
-pdfpp:
+latexpp:
     __inherits__: latex
     o: '%.tex'
     R:
-    latex-engine: lualatex
+    latex-engine: pdflatex
     __pre__:
-        - gpp -H -x %.md -o %.gpp.md
+#        - gpp -T -x %.md -o %.gpp.md
+        - gpp -T -n --include ~/.pandoc/tex.gpp -x %.md -o %.gpp.md -DGPPTEX=1
+#        - gpp -H --include ~/.pandoc/html.gpp %.md -o %.gpp.md
     __in__:
         - '%.gpp.md'
     __post__:
         - python ~/Dropbox/Code/misc/pandoc-filters/pandoc-postprocess.py %.tex
-#        - pdflatex -interaction=batchmode %.tex
-#        - pdflatex -interaction=batchmode %.tex
-        - lualatex -interaction=batchmode %.tex
-        - lualatex -interaction=batchmode %.tex
-        - rm %.out %.aux %.log rm %.gpp.md
+
+pdfpp:
+    __inherits__: latexpp
+    __post__:
+        - python ~/Dropbox/Code/misc/pandoc-filters/pandoc-postprocess.py %.tex
+        - pdflatex -interaction=batchmode %.tex
+        - pdflatex -interaction=batchmode %.tex
+        - rm %.out %.aux %.log
+        - rm %.tex
+        - rm %.gpp.md
 
 html:
     self-contained:
     template: default.html
+    __pre__:
+        - gpp -T -n --include ~/.pandoc/tex.gpp -x %.md -o %.gpp.md -DGPPHTML=1
+    __in__:
+        - '%.gpp.md'
+    __post__:
+        - rm %.gpp.md
     filter:
         - pandoc-citeproc
         - ~/Dropbox/Code/misc/pandoc-filters/pandoc-internalref
     css:
-        - ~/.pandoc/bootstrap/css/bootstrap.min.css
+#        - ~/.pandoc/bootstrap/css/bootstrap.min.css
+        - ~/.pandoc/bootstrap/themes/cosmo/bootstrap.min.css
     o: '%.html'
+
+mjhtml:
+    __inherits__: html
+    mathjax: ~/.pandoc/dynomathjax.js
+    R:
+#    mathjax: ''
+#    variable:
+#        - mathjaxcdn
 
 notehtml:
     __inherits__: html
     __clear__:
         - o
         - S
-    mathjax:
 
