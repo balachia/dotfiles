@@ -156,6 +156,7 @@ let vimrplugin_assign = 0
 let vimrplugin_assign_map = "<M-->"
 let vimrplugin_vsplit = 1
 let r_syntax_folding = 1
+let g:vimrplugin_insert_mode_cmds = 0
 set nofoldenable
 
 " keybinds
@@ -249,54 +250,54 @@ autocmd BufNewFile,BufRead *.Rmd setlocal omnifunc=RmdOmnifunc
 
 
 
-" custom knitr/pandoc configurations
-function! FancyRmd2Pdf()
-    update
-    call RSetWD()
-    let filename = expand("%:r:t")
+"" custom knitr/pandoc configurations
+"function! FancyRmd2Pdf()
+    "update
+    "call RSetWD()
+    "let filename = expand("%:r:t")
     
-    let pandoc_cmd = 'system2("pandoc",
-                \ args=c(
-                \"-r markdown+simple_tables+table_captions+yaml_metadata_block",
-                \"-s","-S","--latex-engine=pdflatex",
-                \"--filter=pandoc-citeproc",
-                \"-o ' . filename . '.pdf",
-                \"' . filename . '.md",
-                \"~/.pandoc/yaml.default"
-                \))'
+    "let pandoc_cmd = 'system2("pandoc",
+                "\ args=c(
+                "\"-r markdown+simple_tables+table_captions+yaml_metadata_block",
+                "\"-s","-S","--latex-engine=pdflatex",
+                "\"--filter=pandoc-citeproc",
+                "\"-o ' . filename . '.pdf",
+                "\"' . filename . '.md",
+                "\"~/.pandoc/yaml.default"
+                "\))'
 
-    let pandoc_cmd = 'system2("pandoc",
-                \ args=c(
-                \"-r markdown+simple_tables+table_captions+yaml_metadata_block",
-                \"--filter pandoc-citeproc",
-                \"-o ' . filename . '.pdf",
-                \"' . filename . '.md",
-                \"~/.pandoc/yaml.default"
-                \))'
+    "let pandoc_cmd = 'system2("pandoc",
+                "\ args=c(
+                "\"-r markdown+simple_tables+table_captions+yaml_metadata_block",
+                "\"--filter pandoc-citeproc",
+                "\"-o ' . filename . '.pdf",
+                "\"' . filename . '.md",
+                "\"~/.pandoc/yaml.default"
+                "\))'
     
-    let rcmd = 'require("knitr");
-                \ knit("' . filename . '.Rmd");
-                \ ' . pandoc_cmd
-    call g:SendCmdToR(rcmd)
-endfunction
+    "let rcmd = 'require("knitr");
+                "\ knit("' . filename . '.Rmd");
+                "\ ' . pandoc_cmd
+    "call g:SendCmdToR(rcmd)
+"endfunction
 
-nnoremap <silent> <Leader>kk :call FancyRmd2Pdf()<CR>
+"nnoremap <silent> <Leader>kk :call FancyRmd2Pdf()<CR>
 
 
-" knitr bootstrap
-function! RMakeHTML_2()
-  update
-  call RSetWD()
-  let filename = expand("%:r:t")
-  let rcmd = 'require("knitrBootstrap");
-              \ require("rmarkdown");
-              \ render("' . filename . '.Rmd", "knitrBootstrap::bootstrap_document")'
-  if g:vimrplugin_openhtml
-    let rcmd = rcmd . '; browseURL("' . filename . '.html")'
-  endif
-  call g:SendCmdToR(rcmd)
-endfunction
+"" knitr bootstrap
+"function! RMakeHTML_2()
+  "update
+  "call RSetWD()
+  "let filename = expand("%:r:t")
+  "let rcmd = 'require("knitrBootstrap");
+              "\ require("rmarkdown");
+              "\ render("' . filename . '.Rmd", "knitrBootstrap::bootstrap_document")'
+  "if g:vimrplugin_openhtml
+    "let rcmd = rcmd . '; browseURL("' . filename . '.html")'
+  "endif
+  "call g:SendCmdToR(rcmd)
+"endfunction
 
-"bind RMakeHTML_2 to leader kk
-"nnoremap <silent> <Leader>kk :call RMakeHTML_2()<CR>
+""bind RMakeHTML_2 to leader kk
+""nnoremap <silent> <Leader>kk :call RMakeHTML_2()<CR>
 
