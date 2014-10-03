@@ -88,6 +88,9 @@ export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:$PATH
 # MacPorts?
 #export PATH=/opt/local/bin:/opt/local/sbin:$PATH
 
+# random applications that should have a CLI:
+alias matlab="/Applications/MATLAB_R2013a.app/bin/matlab -nodesktop"
+
 # add cabal to path
 export PATH=~/Library/Haskell/bin:~/.cabal/bin:$PATH
 #export PATH=~/Library/Haskell/bin:$PATH
