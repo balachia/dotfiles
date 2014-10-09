@@ -35,7 +35,7 @@ latex:
         - pandoc-citeproc
         - ~/Dropbox/Code/misc/pandoc-filters/pandoc-internalref
         - ~/Dropbox/Code/misc/pandoc-filters/pandoc-dropinenv
-    listings:
+#    listings:
 
 pdf:
     __inherits__: latex
@@ -86,9 +86,6 @@ mjhtml:
     __inherits__: html
     mathjax: ~/.pandoc/dynomathjax.js
     R:
-#    mathjax: ''
-#    variable:
-#        - mathjaxcdn
 
 notehtml:
     __inherits__: html
