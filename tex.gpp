@@ -1,0 +1,18 @@
+\ifdef{GPPTEX}
+\define{_btex}{}
+\define{_etex}{}
+\define{_fig}{#1.pdf}
+\define{_tab}{#1.tex}
+\endif
+
+\ifdef{GPPHTML}
+\define{_btex}{\\[}
+\define{_etex}{\\]}
+\define{_fig}{#1.png}
+\define{_tab}{#1.html}
+\endif
+
+\define{vinclude}{\exec{cat}{#1}}
+
+\mode{user}{"\\" "" "{" "}{" "}" "{" "}" "#" ""}
+\mode{save}
