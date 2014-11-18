@@ -35,6 +35,8 @@ Plugin 'chrisbra/csv.vim'
 Plugin 'vim-pandoc/vim-pandoc'
 Plugin 'vim-pandoc/vim-pandoc-syntax'
 "Plugin 'vim-pandoc/vim-rmarkdown'
+Plugin 'sjl/gundo.vim'
+Plugin 'junegunn/goyo.vim'
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
 if filereadable(expand('~/.personal'))
