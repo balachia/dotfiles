@@ -1,5 +1,4 @@
 let &t_Co=256
-colorscheme ron
 
 " get os name
 let os=substitute(system('uname'), '\n', '', '')
@@ -19,6 +18,10 @@ call vundle#begin()
 Plugin 'gmarik/vundle'
 
 " My bundles
+"Plugin 'godlygeek/csapprox'
+"Plugin 'Lokaltog/vim-distinguished'
+"Plugin 'jonathanfilip/vim-lucius'
+Plugin 'sickill/vim-sunburst'
 Plugin 'Vim-R-plugin'
 "Plugin 'bling/vim-airline'
 Plugin 'itchyny/lightline.vim'
@@ -34,9 +37,12 @@ Plugin 'chrisbra/csv.vim'
 "Plugin 'edkolev/tmuxline.vim'
 Plugin 'vim-pandoc/vim-pandoc'
 Plugin 'vim-pandoc/vim-pandoc-syntax'
+"Plugin 'vim-pandoc/vim-criticmarkup'
+Plugin 'balachia/vim-criticmarkup'
 "Plugin 'vim-pandoc/vim-rmarkdown'
 Plugin 'sjl/gundo.vim'
 Plugin 'junegunn/goyo.vim'
+Plugin 'junegunn/limelight.vim'
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
 if filereadable(expand('~/.personal'))
@@ -47,10 +53,12 @@ if filereadable(expand('~/.personal'))
     Plugin 'epeli/slimux'
     Plugin 'xolox/vim-misc'
     Plugin 'xolox/vim-notes'
-    Plugin 'suan/vim-instant-markdown'
+    "Plugin 'suan/vim-instant-markdown'
 endif
 
 call vundle#end()
+
+colorscheme Sunburst
 
 " Attempt to determine the type of a file based on its name and possibly its
 " contents. Use this to allow intelligent auto-indenting for each filetype,
@@ -214,7 +222,7 @@ autocmd InsertEnter * if !exists('w:last_fdm') | let w:last_fdm=&foldmethod | se
 autocmd InsertLeave,WinLeave * if exists('w:last_fdm') | let &l:foldmethod=w:last_fdm | unlet w:last_fdm | endif
 
 " fix broken markdown extension
-autocmd BufNewFile,BufRead *.md set filetype=markdown
+" autocmd BufNewFile,BufRead *.md set filetype=markdown
 autocmd FileType pandoc setlocal tw=80 formatoptions+=t
 autocmd FileType rmd setlocal tw=80 formatoptions+=t
 
