@@ -43,6 +43,7 @@ Plugin 'balachia/vim-criticmarkup'
 Plugin 'sjl/gundo.vim'
 Plugin 'junegunn/goyo.vim'
 Plugin 'junegunn/limelight.vim'
+Plugin 'reedes/vim-wheel'
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
 if filereadable(expand('~/.personal'))
@@ -170,6 +171,7 @@ let g:vimrplugin_insert_mode_cmds = 0
 set nofoldenable
 
 " keybinds
+inoremap ;; <Esc>
 :nmap ; :CtrlPBuffer<CR>
 
 " airline theme
