@@ -171,7 +171,11 @@ let g:vimrplugin_insert_mode_cmds = 0
 set nofoldenable
 
 " keybinds
-inoremap ;; <Esc>
+" remap escape
+"inoremap ;; <Esc>
+inoremap jk <Esc>
+"inoremap <Esc> <NOP>
+" convenient CtrlP
 :nmap ; :CtrlPBuffer<CR>
 
 " airline theme
