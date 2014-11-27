@@ -47,8 +47,11 @@ latexpp:
     R:
     latex-engine: pdflatex
     __pre__:
+        # clear out critic-markup
+        - CriticMarkup.py %.md %.cm.md
 #        - gpp -T -x %.md -o %.gpp.md
-        - gpp -T -n --include ~/.pandoc/tex.gpp -x %.md -o %.gpp.md -DGPPTEX=1
+        - gpp -T -n --include ~/.pandoc/tex.gpp -x %.cm.md -o %.gpp.md -DGPPTEX=1
+#        - gpp -T -n --include ~/.pandoc/tex.gpp -x %.md -o %.gpp.md -DGPPTEX=1
 #        - gpp -H --include ~/.pandoc/html.gpp %.md -o %.gpp.md
     __in__:
         - '%.gpp.md'
@@ -63,6 +66,7 @@ pdfpp:
         - pdflatex -interaction=batchmode %.tex
         - rm %.out %.aux %.log
         - rm %.tex
+        - rm %.cm.md
         - rm %.gpp.md
 
 html:
