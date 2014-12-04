@@ -177,6 +177,7 @@ inoremap jk <Esc>
 "inoremap <Esc> <NOP>
 " convenient CtrlP
 :nmap ; :CtrlPBuffer<CR>
+nmap ? :CtrlPLine<CR>
 
 " airline theme
 set encoding=utf-8
