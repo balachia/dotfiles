@@ -50,8 +50,8 @@ if filereadable(expand('~/.personal'))
     Plugin 'kchmck/vim-coffee-script'
     "Plugin 'ivanov/vim-ipython'
     "Plugin 'benmills/vimux'
-    "Plugin 'jpalardy/vim-slime'
-    Plugin 'epeli/slimux'
+    Plugin 'jpalardy/vim-slime'
+    "Plugin 'epeli/slimux'
     Plugin 'xolox/vim-misc'
     Plugin 'xolox/vim-notes'
     "Plugin 'suan/vim-instant-markdown'
@@ -206,7 +206,7 @@ let g:pandoc#biblio#use_bibtool = 1
 " vim-slime stuff
 let g:slime_target = "tmux"
 let g:slime_default_config = {"socket_name": "default", "target_pane": ".1"}
-"let g:slime_python_ipython = 1
+let g:slime_python_ipython = 1
 
 " slimux configuration
 map <Leader>l :SlimuxREPLSendLine<CR>
