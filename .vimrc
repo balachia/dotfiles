@@ -240,6 +240,8 @@ if filereadable(expand('~/.personal'))
     "let g:notes_markdown_program='pandoc'
     let g:notes_markdown_program='panopynotes.sh'
     let g:notes_unicode_enabled = 0
+    let g:notes_smart_quotes = 0
+
 
     " markdown preview
     let g:instant_markdown_slow = 1
