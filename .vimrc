@@ -44,14 +44,14 @@ Plugin 'sjl/gundo.vim'
 Plugin 'junegunn/goyo.vim'
 Plugin 'junegunn/limelight.vim'
 Plugin 'reedes/vim-wheel'
+"Plugin 'ivanov/vim-ipython'
+"Plugin 'benmills/vimux'
+Plugin 'jpalardy/vim-slime'
+"Plugin 'epeli/slimux'
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
 if filereadable(expand('~/.personal'))
     Plugin 'kchmck/vim-coffee-script'
-    "Plugin 'ivanov/vim-ipython'
-    "Plugin 'benmills/vimux'
-    Plugin 'jpalardy/vim-slime'
-    "Plugin 'epeli/slimux'
     Plugin 'xolox/vim-misc'
     Plugin 'xolox/vim-notes'
     "Plugin 'suan/vim-instant-markdown'
