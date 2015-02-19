@@ -48,6 +48,8 @@ Plugin 'reedes/vim-wheel'
 "Plugin 'benmills/vimux'
 Plugin 'jpalardy/vim-slime'
 "Plugin 'epeli/slimux'
+Plugin 'vim-scripts/loremipsum'
+Plugin 'LanguageTool'
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
 if filereadable(expand('~/.personal'))
@@ -178,6 +180,10 @@ inoremap jk <Esc>
 " convenient CtrlP
 :nmap ; :CtrlPBuffer<CR>
 nmap ? :CtrlPLine<CR>
+
+" markdown openers
+nmap <Leader>vm :!open -a "Marked 2" %<CR>
+nmap <Leader>vp :!open %:r.pdf<CR>
 
 " airline theme
 set encoding=utf-8
