@@ -50,6 +50,8 @@ Plugin 'jpalardy/vim-slime'
 "Plugin 'epeli/slimux'
 Plugin 'vim-scripts/loremipsum'
 Plugin 'LanguageTool'
+Plugin 'vim-scripts/utl.vim'
+Plugin 'jceb/vim-orgmode'
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
 if filereadable(expand('~/.personal'))
@@ -185,6 +187,9 @@ nmap ? :CtrlPLine<CR>
 nmap <Leader>vm :!open -a "Marked 2" %<CR>
 nmap <Leader>vp :!open %:r.pdf<CR>
 
+" make pdf
+nmap <Leader>mp :!panopy pdfpp %<CR>
+
 " airline theme
 set encoding=utf-8
 set termencoding=utf-8
@@ -274,7 +279,8 @@ endfunction
 
 autocmd BufNewFile,BufRead *.Rmd setlocal omnifunc=RmdOmnifunc
 
-
+" languagetool
+let g:languagetool_jar='/usr/local/Cellar/languagetool/2.8/libexec/languagetool-commandline.jar'
 
 "" custom knitr/pandoc configurations
 "function! FancyRmd2Pdf()
