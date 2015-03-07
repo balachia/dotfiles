@@ -46,6 +46,7 @@ latexpp:
     o: '%.tex'
     R:
     latex-engine: pdflatex
+    default-image-extension: eps
     __pre__:
         # clear out critic-markup
         - CriticMarkup.py %.md %.cm.md
@@ -72,6 +73,7 @@ pdfpp:
 html:
     self-contained:
     template: default.html
+    default-image-extension: png
     __pre__:
         - gpp -T -n --include ~/.pandoc/tex.gpp -x %.md -o %.gpp.md -DGPPHTML=1
     __in__:
