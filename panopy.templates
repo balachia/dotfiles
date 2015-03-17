@@ -24,6 +24,12 @@ reftest:
         - ~/Dropbox/Code/misc/pandoc-filters/pandoc-internalref
         - ~/Dropbox/Code/misc/pandoc-filters/pandoc-dropinenv
 
+rawtest:
+    o: '%.rawtest.txt'
+    t: native
+    filter:
+        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-passthrough
+
 pandoc-json:
     o: '%.json.txt'
     t: json
@@ -35,6 +41,7 @@ latex:
         - pandoc-citeproc
         - ~/Dropbox/Code/misc/pandoc-filters/pandoc-internalref
         - ~/Dropbox/Code/misc/pandoc-filters/pandoc-dropinenv
+        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-passthrough
 #    listings:
 
 pdf:
@@ -48,16 +55,21 @@ latexpp:
     latex-engine: pdflatex
     default-image-extension: eps
     __pre__:
-        # clear out critic-markup
         - CriticMarkup.py %.md %.cm.md
-#        - gpp -T -x %.md -o %.gpp.md
         - gpp -T -n --include ~/.pandoc/tex.gpp -x %.cm.md -o %.gpp.md -DGPPTEX=1
-#        - gpp -T -n --include ~/.pandoc/tex.gpp -x %.md -o %.gpp.md -DGPPTEX=1
-#        - gpp -H --include ~/.pandoc/html.gpp %.md -o %.gpp.md
     __in__:
         - '%.gpp.md'
     __post__:
         - python ~/Dropbox/Code/misc/pandoc-filters/pandoc-postprocess.py %.tex
+
+latexnb:
+    __inherits__: latexpp
+    natbib: 
+    filter:
+        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-internalref
+        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-dropinenv
+        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-passthrough
+
 
 pdfpp:
     __inherits__: latexpp
@@ -69,6 +81,20 @@ pdfpp:
         - rm %.tex
         - rm %.cm.md
         - rm %.gpp.md
+
+pdfnb:
+    __inherits__: latexnb
+    __post__:
+        - python ~/Dropbox/Code/misc/pandoc-filters/pandoc-postprocess.py %.tex
+        - pdflatex -interaction=batchmode %.tex
+        - bibtex %
+        - pdflatex -interaction=batchmode %.tex
+        - pdflatex -interaction=batchmode %.tex
+        - rm %.out %.aux %.log
+        - rm %.tex
+        - rm %.cm.md
+        - rm %.gpp.md
+
 
 html:
     self-contained:
