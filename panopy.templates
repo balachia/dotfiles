@@ -5,12 +5,9 @@ __default__:
     bibliography: ~/Documents/library-clean.bib
     filter: pandoc-citeproc
 
-rst:
-    o: '%.rst'
-    t: rst
-    __clear__:
-        - filter
-        - bibliography
+
+############################################################
+# testing formats
 
 pandoc-native:
     o: '%.native.txt'
@@ -34,6 +31,10 @@ pandoc-json:
     o: '%.json.txt'
     t: json
 
+
+############################################################
+# various latex shit
+
 latex:
     o: '%.tex'
     latex-engine: pdflatex
@@ -42,7 +43,6 @@ latex:
         - ~/Dropbox/Code/misc/pandoc-filters/pandoc-internalref
         - ~/Dropbox/Code/misc/pandoc-filters/pandoc-dropinenv
         - ~/Dropbox/Code/misc/pandoc-filters/pandoc-passthrough
-#    listings:
 
 pdf:
     __inherits__: latex
@@ -96,6 +96,9 @@ pdfnb:
         - rm %.gpp.md
 
 
+############################################################
+# various html shit
+
 html:
     self-contained:
     template: default.html
@@ -124,4 +127,15 @@ notehtml:
     __clear__:
         - o
         - S
+
+
+############################################################
+# miscellaneous
+
+rst:
+    o: '%.rst'
+    t: rst
+    __clear__:
+        - filter
+        - bibliography
 
