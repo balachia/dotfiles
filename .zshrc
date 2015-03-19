@@ -95,6 +95,11 @@ alias matlab="/Applications/MATLAB_R2013a.app/bin/matlab -nodesktop"
 export PATH=~/Library/Haskell/bin:~/.cabal/bin:$PATH
 #export PATH=~/Library/Haskell/bin:$PATH
 
+# useful haskell stuff
+hoog() {
+    hoogle $* | head
+}
+
 # for tmuxinator, must set default editor
 # probably for other things too...
 export EDITOR='vim'
