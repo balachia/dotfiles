@@ -55,7 +55,8 @@ latexpp:
     latex-engine: pdflatex
     default-image-extension: eps
     __pre__:
-        - CriticMarkup.py %.md %.cm.md
+        # - CriticMarkup.py %.md %.cm.md
+        - criticmarkuphs %.md %.cm.md
         - gpp -T -n --include ~/.pandoc/tex.gpp -x %.cm.md -o %.gpp.md -DGPPTEX=1
     __in__:
         - '%.gpp.md'
