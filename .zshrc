@@ -108,6 +108,9 @@ export EDITOR='vim'
 # something about ruby?
 [[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm" # Load RVM into a shell session *as a function*
 
+# tmuxifier
+eval "$(tmuxifier init -)"
+
 # vim-notes integration
 ne() {
     vim -c ":Note $*" 
