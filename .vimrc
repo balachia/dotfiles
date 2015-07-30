@@ -52,6 +52,8 @@ Plugin 'vim-scripts/loremipsum'
 Plugin 'LanguageTool'
 Plugin 'vim-scripts/utl.vim'
 Plugin 'jceb/vim-orgmode'
+Plugin 'tomvanderlee/vim-kerboscript'
+Plugin 'terryma/vim-multiple-cursors'
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
 if filereadable(expand('~/.personal'))
