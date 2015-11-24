@@ -39,8 +39,10 @@ latex:
     o: '%.tex'
     latex-engine: pdflatex
     filter:
+        # - pandoc-citeproc
+        # - ~/Dropbox/Code/misc/pandoc-filters/pandoc-internalref
+        - pandoc-crossref
         - pandoc-citeproc
-        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-internalref
         - ~/Dropbox/Code/misc/pandoc-filters/pandoc-dropinenv
         - ~/Dropbox/Code/misc/pandoc-filters/pandoc-passthrough
 

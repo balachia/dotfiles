@@ -53,13 +53,16 @@ ZSH_THEME="dieter"
 # Custom plugins may be added to ~/.oh-my-zsh/custom/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 plugins=(tmuxinator tmux git wd brew pip sudo osx)
+#plugins=(tmuxinator git wd brew pip sudo osx)
 
-source $ZSH/oh-my-zsh.sh
+#source $ZSH/oh-my-zsh.sh
 
 # User configuration
 
 export PATH=$HOME/.linuxbrew/bin:$HOME/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:$PATH
 # export MANPATH="/usr/local/man:$MANPATH"
+
+source $ZSH/oh-my-zsh.sh
 
 # You may need to manually set your language environment
 # export LANG=en_US.UTF-8
@@ -90,6 +93,9 @@ export PATH=$HOME/.linuxbrew/bin:$HOME/bin:$HOME/.local/bin:/usr/local/bin:/usr/
 
 # random applications that should have a CLI:
 alias matlab="/Applications/MATLAB_R2013a.app/bin/matlab -nodesktop"
+
+# add mactex to path
+export PATH=/Library/Tex/texbin:$PATH
 
 # add cabal to path
 export PATH=~/Library/Haskell/bin:~/.cabal/bin:$PATH
