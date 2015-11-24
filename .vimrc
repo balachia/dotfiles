@@ -42,8 +42,9 @@ Plugin 'balachia/vim-criticmarkup'
 "Plugin 'vim-pandoc/vim-rmarkdown'
 Plugin 'sjl/gundo.vim'
 Plugin 'junegunn/goyo.vim'
-Plugin 'junegunn/limelight.vim'
+"Plugin 'junegunn/limelight.vim'
 Plugin 'reedes/vim-wheel'
+Plugin 'reedes/vim-wordy'
 "Plugin 'ivanov/vim-ipython'
 "Plugin 'benmills/vimux'
 Plugin 'jpalardy/vim-slime'
@@ -190,7 +191,10 @@ nmap <Leader>vm :!open -a "Marked 2" %<CR>
 nmap <Leader>vp :!open %:r.pdf<CR>
 
 " make pdf
-nmap <Leader>mp :!panopy pdfpp %<CR>
+nmap <Leader>mp :w <bar> !panopy pdfpp %<CR>
+
+" critic markdown word count
+nmap <Leader>wc :echom system('TEST=$(mktemp); criticmarkuphs ' . expand('%') . ' $TEST; wc -w $TEST')<CR>
 
 " airline theme
 set encoding=utf-8
@@ -264,7 +268,7 @@ endif
 if os == 'Darwin'
     " osx copy/paste
     vmap <C-x> :!pbcopy<CR>  
-    vmap <C-c> :w !pbcopy<CR><CR> 
+    vmap <C-y> :w !pbcopy<CR><CR> 
 endif
 
 " hijack vim-r-plugin autocompletion for Rmd files
