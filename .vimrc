@@ -189,12 +189,16 @@ nmap ? :CtrlPLine<CR>
 " markdown openers
 nmap <Leader>vm :!open -a "Marked 2" %<CR>
 nmap <Leader>vp :!open %:r.pdf<CR>
+nmap <Leader>vh :!open %:r.html<CR>
 
-" make pdf
+" markdown makers
 nmap <Leader>mp :w <bar> !panopy pdfpp %<CR>
+nmap <Leader>mt :w <bar> !panopy latexpp %<CR>
+nmap <Leader>mh :w <bar> !panopy html %<CR>
 
 " critic markdown word count
 nmap <Leader>wc :echom system('TEST=$(mktemp); criticmarkuphs ' . expand('%') . ' $TEST; wc -w $TEST')<CR>
+"nmap <Leader>wc :echom system('TEST=$(mktemp); criticmarkuphs ' . expand('%') . ' $TEST; echo word count: $(cat $TEST | wc -w)')<CR>
 
 " airline theme
 set encoding=utf-8
