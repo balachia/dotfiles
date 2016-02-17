@@ -115,14 +115,16 @@ html:
     template: default.html
     default-image-extension: png
     __pre__:
-        - gpp -T -n --include ~/.pandoc/tex.gpp -x %.md -o %.gpp.md -DGPPHTML=1
+        - criticmarkuphs %.md %.cm.md
+        - gpp -T -n --include ~/.pandoc/tex.gpp -x %.cm.md -o %.gpp.md -DGPPHTML=1
     __in__:
         - '%.gpp.md'
     __post__:
-        - rm %.gpp.md
+        - rm %.cm.md %.gpp.md
     filter:
+        - pandoc-crossref
         - pandoc-citeproc
-        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-internalref
+#        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-internalref
     css:
 #        - ~/.pandoc/bootstrap/css/bootstrap.min.css
         - ~/.pandoc/bootstrap/themes/cosmo/bootstrap.min.css
