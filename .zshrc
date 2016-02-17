@@ -94,6 +94,9 @@ source $ZSH/oh-my-zsh.sh
 # random applications that should have a CLI:
 alias matlab="/Applications/MATLAB_R2013a.app/bin/matlab -nodesktop"
 
+# for vim r plugin
+alias vimcs="vim --servername VIM"
+
 # add mactex to path
 export PATH=/Library/Tex/texbin:$PATH
 
