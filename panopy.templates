@@ -1,7 +1,7 @@
 __default__:
     s:
     S:
-    r: markdown+simple_tables+table_captions+yaml_metadata_block+tex_math_double_backslash
+    r: markdown+simple_tables+table_captions+yaml_metadata_block+tex_math_double_backslash+grid_tables
     bibliography: ~/Documents/library-clean.bib
     filter: pandoc-citeproc
 
