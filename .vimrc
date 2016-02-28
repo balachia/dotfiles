@@ -15,7 +15,8 @@ set rtp+=~/.vim/bundle/Vundle.vim
 call vundle#begin()
 
 " let Vundle manage Vundle, required
-Plugin 'gmarik/vundle'
+"Plugin 'gmarik/vundle'
+Plugin 'gmarik/Vundle.vim'
 
 " My bundles
 "Plugin 'godlygeek/csapprox'
@@ -55,6 +56,8 @@ Plugin 'vim-scripts/utl.vim'
 Plugin 'jceb/vim-orgmode'
 Plugin 'tomvanderlee/vim-kerboscript'
 Plugin 'terryma/vim-multiple-cursors'
+Plugin 'AsyncCommand'
+Plugin 'dhruvasagar/vim-table-mode'
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
 if filereadable(expand('~/.personal'))
@@ -173,6 +176,7 @@ nnoremap <C-L> :nohl<CR><C-L>
 let vimrplugin_assign = 0
 let vimrplugin_assign_map = "<M-->"
 let vimrplugin_vsplit = 1
+let vimrplugin_vimpager = "tabnew"
 let r_syntax_folding = 1
 let g:vimrplugin_insert_mode_cmds = 0
 set nofoldenable
@@ -193,6 +197,9 @@ nmap <Leader>vh :!open %:r.html<CR>
 
 " markdown makers
 nmap <Leader>mp :w <bar> !panopy pdfpp %<CR>
+nmap <Leader>mf :w <bar> :AsyncShell panopy pdfpp %<CR>
+nmap <Leader>map :w <bar> :AsyncShell panopy pdfpp %<CR>
+nmap <Leader>mah :w <bar> :AsyncShell panopy html %<CR>
 nmap <Leader>mt :w <bar> !panopy latexpp %<CR>
 nmap <Leader>mh :w <bar> !panopy html %<CR>
 
@@ -223,6 +230,10 @@ let g:lightline = {
 " pandoc shit
 let g:pandoc#biblio#bibs = [expand('~/Documents/library-clean.bib')]
 let g:pandoc#biblio#use_bibtool = 1
+
+" vim table mode
+let g:table_mode_corner_corner="+"
+let g:table_mode_header_fillchar="="
 
 " vim-slime stuff
 let g:slime_target = "tmux"
