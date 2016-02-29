@@ -1,4 +1,5 @@
-let &t_Co=256
+"let &t_Co=256
+let $NVIM_TUI_ENABLE_TRUE_COLOR = 1
 
 " get os name
 let os=substitute(system('uname'), '\n', '', '')
@@ -8,11 +9,29 @@ call plug#begin('~/.vim/plugged')
 
 " My bundles
 Plug 'sickill/vim-sunburst'
+"Plug 'kocakosm/hilal'
+"Plug 'hewo/vim-colorscheme-deepsea'
+"Plug 'mtglsk/mushroom'
+"Plug 'tomasr/molokai'
+"Plug 'yantze/pt_black'
+"Plug 'ajh17/Spacegray.vim'
+"Plug 'cseelus/vim-colors-clearance'
+"Plug 'xoria256.vim'
+"Plug 'synic.vim'
+Plug 'The-Vim-Gardener'
+Plug 'svjunic/RadicalGoodSpeed.vim'
+Plug 'noahfrederick/vim-hemisu'
+Plug 'burnttoast256'
+Plug 'dsolstad/vim-wombat256i'
+Plug 'reedes/vim-colors-pencil'
+Plug 'flazz/vim-colorschemes'
+Plug 'w0ng/vim-hybrid'
+Plug 'sjl/badwolf'
 "Plug 'Vim-R-plugin'
 Plug 'jalvesaq/Nvim-R'
 Plug 'itchyny/lightline.vim'
 Plug 'kien/ctrlp.vim'
-"Plug 'Lokaltog/vim-easymotion'
+Plug 'Lokaltog/vim-easymotion'
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-repeat'
 "Plug 'scrooloose/syntastic'
@@ -39,6 +58,7 @@ Plug 'reedes/vim-wordy'
 Plug 'reedes/vim-textobj-sentence'
 "Plug 'reedes/vim-litecorrect'
 Plug 'reedes/vim-lexical'
+Plug 'reedes/vim-thematic'
 Plug 'jpalardy/vim-slime'
 Plug 'vim-scripts/loremipsum'
 Plug 'LanguageTool'
@@ -64,7 +84,15 @@ endif
 
 call plug#end()
 
-colorscheme Sunburst
+"colorscheme Sunburst
+"colorscheme gardener
+"colorscheme ir_black
+"colorscheme herald
+"colorscheme jellyx
+"colorscheme underwater
+"colorscheme pencil
+"colorscheme hybrid
+colorscheme badwolf
 
 " Attempt to determine the type of a file based on its name and possibly its
 " contents. Use this to allow intelligent auto-indenting for each filetype,
@@ -83,14 +111,14 @@ set hidden
 " set autowriteall
 
 " Better command-line completion
-set wildmenu
+"set wildmenu
 
 " Show partial commands in the last line of the screen
-set showcmd
+"set showcmd
 
 " Highlight searches (use <C-L> to temporarily turn off highlighting; see the
 " mapping of <C-L> below)
-set hlsearch
+"set hlsearch
 
 " Modelines have historically been a source of security vulnerabilities. As
 " such, it may be a good idea to disable them and use the securemodelines
@@ -102,11 +130,11 @@ set ignorecase
 set smartcase
 
 " Allow backspacing over autoindent, line breaks and start of insert action
-set backspace=indent,eol,start
+"set backspace=indent,eol,start
 
 " When opening a new line and no filetype-specific indenting is enabled, keep
 " the same indent as the line you're currently on. Useful for READMEs, etc.
-set autoindent
+"set autoindent
 
 " Stop certain movements from always going to the first character of a line.
 " While this behaviour deviates from that of Vi, it does what most users
@@ -133,7 +161,7 @@ set visualbell
 " set t_vb=
 
 " Enable use of the mouse for all modes
-set mouse=a
+"set mouse=a
 
 " Set the command window height to 2 lines, to avoid many cases of having to
 " "press <Enter> to continue"
@@ -145,6 +173,8 @@ set number
 " Quickly time out on keycodes, but never time out on mappings
 "set notimeout ttimeout ttimeoutlen=200
 
+" need to somehow configure this to prevent magic characters from appearing
+" after you hit escape
 "set timeout
 set notimeout
 set timeoutlen=750
@@ -236,10 +266,10 @@ nmap <Leader>mah :w <bar> call PanopyStart(['panopy','html',expand('%')])<CR>
 nmap <Leader>wc :echom system('TEST=$(mktemp); criticmarkuphs ' . expand('%') . ' $TEST; wc -w $TEST')<CR>
 "nmap <Leader>wc :echom system('TEST=$(mktemp); criticmarkuphs ' . expand('%') . ' $TEST; echo word count: $(cat $TEST | wc -w)')<CR>
 
-" airline theme
-set encoding=utf-8
-set termencoding=utf-8
-let g:airline_powerline_fonts = 1
+"" airline theme
+"set encoding=utf-8
+"set termencoding=utf-8
+"let g:airline_powerline_fonts = 1
 
 " vim-pencil time
 "augroup pencil
@@ -274,7 +304,7 @@ let g:lightline = {
 let g:pandoc#biblio#bibs = [expand('~/Documents/library-clean.bib')]
 let g:pandoc#biblio#use_bibtool = 1
 let g:pandoc#completion#bib#mode = 'citeproc'
-let g:pandoc#formatting#mode = 'hA'
+let g:pandoc#formatting#mode = 'h'
 let g:pandoc#formatting#textwidth = 80
 " we need a way to turn off auto formatting
 nmap <Leader>taf :call pandoc#formatting#ToggleAutoFormat()
