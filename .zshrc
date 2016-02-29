@@ -122,15 +122,18 @@ eval "$(tmuxifier init -)"
 
 # vim-notes integration
 ne() {
-    vim -c ":Note $*" 
+    #vim -c ":Note $*" 
+    nvim -c ":Note $*" 
 }
 
 ## New Note: calls vim notes plugin
 n() { 
-    vim -c :Note
+    #vim -c :Note
+    nvim -c :Note
 }
 
 # Searches Notes
 nls() {
-    ls -c ~/Notes/ | egrep -i "$*"
+    #ls -c ~/Dropbox/Notes/ | egrep -i "$*"
+    ls -c ~/Dropbox/Notes/ | ag -i "$*"
 }
