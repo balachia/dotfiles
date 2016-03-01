@@ -69,17 +69,17 @@ Plug 'terryma/vim-multiple-cursors'
 "Plug 'AsyncCommand'
 Plug 'dhruvasagar/vim-table-mode'
 Plug 'gerw/vim-HiLinkTrace'
-Plug 'Shougo/unite.vim'
 Plug 'Shougo/vimproc.vim'
+Plug 'Shougo/unite.vim'
 "Plug 'termoshtt/unite-bibtex'
 Plug 'balachia/unite-bibtex'
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
 if filereadable(expand('~/.personal'))
 "    Plug 'kchmck/vim-coffee-script'
-"    Plug 'xolox/vim-misc'
-"    Plug 'xolox/vim-notes'
-"    "Plug 'suan/vim-instant-markdown'
+    Plug 'xolox/vim-misc'
+    Plug 'xolox/vim-notes'
+    "Plug 'suan/vim-instant-markdown'
 endif
 
 call plug#end()

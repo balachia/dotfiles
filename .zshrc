@@ -135,5 +135,6 @@ n() {
 # Searches Notes
 nls() {
     #ls -c ~/Dropbox/Notes/ | egrep -i "$*"
-    ls -c ~/Dropbox/Notes/ | ag -i "$*"
+    #ls -c ~/Dropbox/Notes/ | ag -i "$*"
+    nvim -c ":Unite -start-insert grep:~/Dropbox/Notes:-iR:$*"
 }
