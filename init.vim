@@ -30,7 +30,7 @@ Plug 'sjl/badwolf'
 "Plug 'Vim-R-plugin'
 Plug 'jalvesaq/Nvim-R'
 Plug 'itchyny/lightline.vim'
-Plug 'kien/ctrlp.vim'
+"Plug 'kien/ctrlp.vim'
 Plug 'Lokaltog/vim-easymotion'
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-repeat'
@@ -73,6 +73,11 @@ Plug 'Shougo/vimproc.vim'
 Plug 'Shougo/unite.vim'
 "Plug 'termoshtt/unite-bibtex'
 Plug 'balachia/unite-bibtex'
+Plug 'ZoomWin'
+Plug 'tomtom/tlib_vim'
+Plug 'marcweber/vim-addon-mw-utils'
+Plug 'garbas/vim-snipmate'
+Plug 'kshenoy/vim-signature'
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
 if filereadable(expand('~/.personal'))
@@ -209,14 +214,17 @@ set expandtab
 nnoremap <C-L> :nohl<CR><C-L>
 
 " VIM R plugin shit
-let vimrplugin_assign = 0
-let vimrplugin_assign_map = "<M-->"
-let vimrplugin_vsplit = 1
-"let R_in_buffer = 0
-let R_nvimpager = "tab"
-let R_vsplit = 1
+"let vimrplugin_assign = 0
+"let vimrplugin_assign_map = "<M-->"
+"let vimrplugin_vsplit = 1
+let R_in_buffer = 0
+let R_applescript = 0
+let R_tmux_split = 1
+"let R_assign = 0
+"let R_nvimpager = "tab"
+"let R_vsplit = 1
 let r_syntax_folding = 1
-let g:vimrplugin_insert_mode_cmds = 0
+"let g:vimrplugin_insert_mode_cmds = 0
 set nofoldenable
 
 " keybinds
@@ -225,8 +233,16 @@ set nofoldenable
 inoremap jk <Esc>
 "inoremap <Esc> <NOP>
 " convenient CtrlP
-:nmap ; :CtrlPBuffer<CR>
-nmap ? :CtrlPLine<CR>
+":nmap ; :CtrlPBuffer<CR>
+"nmap ? :CtrlPLine<CR>
+
+" replace shit with unite
+call unite#filters#matcher_default#use(['matcher_fuzzy'])
+nnoremap <C-p> :Unite -start-insert file_rec/async<cr>
+"nnoremap ; :Unite -quick-match buffer<cr>
+nnoremap ; :Unite -start-insert buffer<cr>
+nnoremap ? :Unite -start-insert line<cr>
+
 
 " markdown openers
 nmap <Leader>vm :!open -a "Marked 2" %<CR>
@@ -240,8 +256,12 @@ nmap <Leader>mh :w <bar> !panopy html %<CR>
 
 " rewrite for neovim job control
 function! PanopyStart(args)
-    let tmp = tempname()
-    call writefile(a:args,tmp,'a')
+    echom 'start: ' . join(a:args)
+    if !exists("g:panopy_temp_name")
+        let g:panopy_temp_name=tempname()
+    endif
+    let tmp = g:panopy_temp_name
+    call writefile(a:args,tmp,'w')
     let pevent = {'temp_name':tmp}
     function pevent.on_stdout(job_id,data)
         call writefile(a:data,self.temp_name,'a')
@@ -261,10 +281,15 @@ endfunction
 
 nmap <Leader>map :w <bar> call PanopyStart(['panopy','pdfpp',expand('%')])<CR>
 nmap <Leader>mah :w <bar> call PanopyStart(['panopy','html',expand('%')])<CR>
+nmap <Leader>mat :w <bar> call PanopyStart(['panopy','latexpp',expand('%')])<CR>
 
 " critic markdown word count
 nmap <Leader>wc :echom system('TEST=$(mktemp); criticmarkuphs ' . expand('%') . ' $TEST; wc -w $TEST')<CR>
 "nmap <Leader>wc :echom system('TEST=$(mktemp); criticmarkuphs ' . expand('%') . ' $TEST; echo word count: $(cat $TEST | wc -w)')<CR>
+
+" Goyo
+let g:goyo_width=90
+nnoremap <Leader>gy :Goyo<cr>
 
 "" airline theme
 "set encoding=utf-8
@@ -342,6 +367,16 @@ map <F6> :set list!<CR>
 " better fold management
 autocmd InsertEnter * if !exists('w:last_fdm') | let w:last_fdm=&foldmethod | setlocal foldmethod=manual | endif
 autocmd InsertLeave,WinLeave * if exists('w:last_fdm') | let &l:foldmethod=w:last_fdm | unlet w:last_fdm | endif
+
+" window navigation
+nnoremap <A-h> <C-w>h
+nnoremap <A-j> <C-w>j
+nnoremap <A-k> <C-w>k
+nnoremap <A-l> <C-w>l
+tnoremap <A-h> <C-\><C-n><C-w>h
+tnoremap <A-j> <C-\><C-n><C-w>j
+tnoremap <A-k> <C-\><C-n><C-w>k
+tnoremap <A-l> <C-\><C-n><C-w>l
 
 " fix broken markdown extension
 " autocmd BufNewFile,BufRead *.md set filetype=markdown
