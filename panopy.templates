@@ -27,6 +27,22 @@ rawtest:
     filter:
         - ~/Dropbox/Code/misc/pandoc-filters/pandoc-passthrough
 
+crossref-test:
+    o: '%.crossref.txt'
+    t: native
+    R:
+    latex-engine: pdflatex
+    __pre__:
+        - criticmarkuphs %.md %.cm.md
+        - gpp -T -n --include ~/.pandoc/tex.gpp -x %.cm.md -o %.gpp.md -DGPPTEX=1
+    __in__:
+        - '%.gpp.md'
+    filter:
+        - pandoc-crossref
+        - pandoc-citeproc
+        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-dropinenv
+        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-passthrough
+
 pandoc-json:
     o: '%.json.txt'
     t: json

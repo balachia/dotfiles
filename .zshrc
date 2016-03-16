@@ -60,6 +60,8 @@ plugins=(tmuxinator tmux git wd brew pip sudo osx)
 # User configuration
 
 export PATH=$HOME/.linuxbrew/bin:$HOME/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:$PATH
+export MANPATH="$HOME/.linuxbrew/share/man:$MANPATH"
+export INFOPATH="$HOME/.linuxbrew/share/info:$INFOPATH"
 # export MANPATH="/usr/local/man:$MANPATH"
 
 source $ZSH/oh-my-zsh.sh

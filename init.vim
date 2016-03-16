@@ -217,11 +217,13 @@ nnoremap <C-L> :nohl<CR><C-L>
 "let vimrplugin_assign = 0
 "let vimrplugin_assign_map = "<M-->"
 "let vimrplugin_vsplit = 1
-let R_in_buffer = 0
-let R_applescript = 0
-let R_tmux_split = 1
+if $TMUX != "" 
+    let R_in_buffer = 0
+    let R_applescript = 0
+    let R_tmux_split = 1
+endif
 "let R_assign = 0
-"let R_nvimpager = "tab"
+let R_nvimpager = "tab"
 "let R_vsplit = 1
 let r_syntax_folding = 1
 "let g:vimrplugin_insert_mode_cmds = 0
