@@ -213,6 +213,9 @@ set expandtab
 " next search
 nnoremap <C-L> :nohl<CR><C-L>
 
+" remap leader
+let mapleader=","
+
 " VIM R plugin shit
 "let vimrplugin_assign = 0
 "let vimrplugin_assign_map = "<M-->"
@@ -239,16 +242,17 @@ inoremap jk <Esc>
 "nmap ? :CtrlPLine<CR>
 
 " replace shit with unite
-call unite#filters#matcher_default#use(['matcher_fuzzy'])
+"call unite#filters#matcher_default#use(['matcher_fuzzy'])
 nnoremap <C-p> :Unite -start-insert file_rec/async<cr>
 "nnoremap ; :Unite -quick-match buffer<cr>
 nnoremap ; :Unite -start-insert buffer<cr>
-nnoremap ? :Unite -start-insert line<cr>
+nnoremap <Leader>? :Unite -start-insert line<cr>
 
 
 " markdown openers
 nmap <Leader>vm :!open -a "Marked 2" %<CR>
 nmap <Leader>vp :!open %:r.pdf<CR>
+nmap <Leader>vt :e %:r.tex<CR>
 nmap <Leader>vh :!open %:r.html<CR>
 
 " markdown makers
@@ -292,6 +296,9 @@ nmap <Leader>wc :echom system('TEST=$(mktemp); criticmarkuphs ' . expand('%') . 
 " Goyo
 let g:goyo_width=90
 nnoremap <Leader>gy :Goyo<cr>
+" lightline updates caused a Goyo regression
+autocmd! User GoyoEnter call lightline#disable()
+autocmd! User GoyoLeave call lightline#enable()
 
 "" airline theme
 "set encoding=utf-8
@@ -422,4 +429,58 @@ autocmd BufNewFile,BufRead *.Rmd setlocal omnifunc=RmdOmnifunc
 
 " languagetool
 let g:languagetool_jar='/usr/local/Cellar/languagetool/2.8/libexec/languagetool-commandline.jar'
+
+" test test test test test
+" test test test test test
+
+" critic markup hacking time!
+nnoremap <leader>ed :set operatorfunc=CMDelOperator<cr>g@
+vnoremap <leader>ed :<c-u>call CMOperator(visualmode(),'<','>','{--','--}')<cr>
+nnoremap <leader>ea :set operatorfunc=CMAddOperator<cr>g@
+vnoremap <leader>ea :<c-u>call CMOperator(visualmode(),'<','>','{++','++}')<cr>
+nnoremap <leader>eh :set operatorfunc=CMHilOperator<cr>g@
+vnoremap <leader>eh :<c-u>call CMOperator(visualmode(),'<','>','{==','==}')<cr>
+nnoremap <leader>ec :set operatorfunc=CMComOperator<cr>g@
+vnoremap <leader>ec :<c-u>call CMOperator(visualmode(),'<','>','{>>','<<}')<cr>
+nnoremap <leader>es :set operatorfunc=CMSubOperator<cr>g@
+vnoremap <leader>es :<c-u>call CMOperator(visualmode(),'<','>','{~~','~>~~}')<cr>
+
+function! CMDelOperator(type)
+    call CMOperator(a:type,'[',']','{--','--}')
+endfunction
+
+function! CMAddOperator(type)
+    call CMOperator(a:type,'[',']','{++','++}')
+endfunction
+
+function! CMHilOperator(type)
+    call CMOperator(a:type,'[',']','{==','==}')
+endfunction
+
+function! CMComOperator(type)
+    call CMOperator(a:type,'[',']','{>>','<<}')
+endfunction
+
+function! CMSubOperator(type)
+    call CMOperator(a:type,'[',']','{~~','~>~~}')
+endfunction
+
+function! CMOperator(type, m0, m1, t0, t1)
+    let pastem=&paste
+    set paste
+
+    echom a:type
+
+    if a:type ==# 'v' || a:type == 'char'
+        silent exe "normal! `" . a:m0 . "v`" . a:m1 . "d"
+        "silent exe "normal! i" . a:t0 . "\<esc>pa" . a:t1 . "\<esc>"
+        silent exe "normal! i" . a:t0 . "\<esc>a". a:t1 . "\<esc>`[P"
+    elseif a:type ==# 'V' || a:type == 'line'
+        silent exe "normal! `" . a:m0 . "V`" . a:m1 . "d"
+        "silent exe "normal! O" . a:t0 . "\<esc>po" . a:t1 . "\<esc>"
+        silent exe "normal! O" . a:t0 . "\<cr>" . a:t1 . "\<esc>P"
+    endif
+
+    let &paste=pastem
+endfunction
 
