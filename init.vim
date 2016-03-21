@@ -9,20 +9,7 @@ call plug#begin('~/.vim/plugged')
 
 " My bundles
 Plug 'sickill/vim-sunburst'
-"Plug 'kocakosm/hilal'
-"Plug 'hewo/vim-colorscheme-deepsea'
-"Plug 'mtglsk/mushroom'
-"Plug 'tomasr/molokai'
-"Plug 'yantze/pt_black'
-"Plug 'ajh17/Spacegray.vim'
-"Plug 'cseelus/vim-colors-clearance'
-"Plug 'xoria256.vim'
-"Plug 'synic.vim'
 Plug 'The-Vim-Gardener'
-Plug 'svjunic/RadicalGoodSpeed.vim'
-Plug 'noahfrederick/vim-hemisu'
-Plug 'burnttoast256'
-Plug 'dsolstad/vim-wombat256i'
 Plug 'reedes/vim-colors-pencil'
 Plug 'flazz/vim-colorschemes'
 Plug 'w0ng/vim-hybrid'
@@ -46,8 +33,6 @@ Plug 'vim-pandoc/vim-pandoc-syntax'
 Plug 'vim-pandoc/vim-criticmarkup'
 "Plug 'balachia/vim-criticmarkup'
 ""Plug 'vim-pandoc/vim-rmarkdown'
-"Plug 'tpope/vim-markdown'
-"Plug 'mattly/vim-markdown-enhancements'
 "Plug 'sjl/gundo.vim'
 Plug 'junegunn/goyo.vim'
 ""Plug 'junegunn/limelight.vim'
@@ -66,18 +51,18 @@ Plug 'vim-scripts/utl.vim'
 "Plug 'jceb/vim-orgmode'
 "Plug 'tomvanderlee/vim-kerboscript'
 Plug 'terryma/vim-multiple-cursors'
-"Plug 'AsyncCommand'
 Plug 'dhruvasagar/vim-table-mode'
 Plug 'gerw/vim-HiLinkTrace'
 Plug 'Shougo/vimproc.vim'
 Plug 'Shougo/unite.vim'
 "Plug 'termoshtt/unite-bibtex'
 Plug 'balachia/unite-bibtex'
-Plug 'ZoomWin'
+"Plug 'ZoomWin'
 Plug 'tomtom/tlib_vim'
 Plug 'marcweber/vim-addon-mw-utils'
 Plug 'garbas/vim-snipmate'
 Plug 'kshenoy/vim-signature'
+Plug 'takac/vim-hardtime'
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
 if filereadable(expand('~/.personal'))
@@ -216,6 +201,11 @@ nnoremap <C-L> :nohl<CR><C-L>
 " remap leader
 let mapleader=","
 
+" vim-hardtime
+let g:hardtime_default_on = 1
+let g:hardtime_showmsg = 1
+let g:hardtime_maxcount = 2
+
 " VIM R plugin shit
 "let vimrplugin_assign = 0
 "let vimrplugin_assign_map = "<M-->"
@@ -240,12 +230,13 @@ inoremap jk <Esc>
 " convenient CtrlP
 ":nmap ; :CtrlPBuffer<CR>
 "nmap ? :CtrlPLine<CR>
+nmap <Leader>gs :Gstatus<cr>
 
 " replace shit with unite
 "call unite#filters#matcher_default#use(['matcher_fuzzy'])
 nnoremap <C-p> :Unite -start-insert file_rec/async<cr>
 "nnoremap ; :Unite -quick-match buffer<cr>
-nnoremap ; :Unite -start-insert buffer<cr>
+nnoremap <Leader>; :Unite -start-insert buffer<cr>
 nnoremap <Leader>? :Unite -start-insert line<cr>
 
 
@@ -299,11 +290,6 @@ nnoremap <Leader>gy :Goyo<cr>
 " lightline updates caused a Goyo regression
 autocmd! User GoyoEnter call lightline#disable()
 autocmd! User GoyoLeave call lightline#enable()
-
-"" airline theme
-"set encoding=utf-8
-"set termencoding=utf-8
-"let g:airline_powerline_fonts = 1
 
 " vim-pencil time
 "augroup pencil
@@ -472,7 +458,7 @@ function! CMOperator(type, m0, m1, t0, t1)
     if a:type ==# 'v' || a:type == 'char'
         silent exe "normal! `" . a:m0 . "v`" . a:m1 . "d"
         "silent exe "normal! i" . a:t0 . "\<esc>pa" . a:t1 . "\<esc>"
-        silent exe "normal! i" . a:t0 . "\<esc>a". a:t1 . "\<esc>`[P"
+        silent exe "normal! i" . a:t0 . "\<esc>a". a:t1 . "\<esc>g`[P"
     elseif a:type ==# 'V' || a:type == 'line'
         silent exe "normal! `" . a:m0 . "V`" . a:m1 . "d"
         "silent exe "normal! O" . a:t0 . "\<esc>po" . a:t1 . "\<esc>"

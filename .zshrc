@@ -114,9 +114,15 @@ hoog() {
     hoogle $* | head
 }
 
+# default editor neovim! fall back to vim!
+if ! type "nvim" > /dev/null; then
+    export EDITOR='vim'
+else
+    export EDITOR='nvim'
+fi
+
 # for tmuxinator, must set default editor
 # probably for other things too...
-export EDITOR='vim'
 [[ $HOST =~ ".stanford.edu" ]] && export PATH=~/.gem/ruby/1.9.1/bin:$PATH
 
 # something about ruby?
