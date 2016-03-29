@@ -30,8 +30,9 @@ Plug 'chrisbra/csv.vim'
 ""Plug 'edkolev/tmuxline.vim'
 Plug 'vim-pandoc/vim-pandoc'
 Plug 'vim-pandoc/vim-pandoc-syntax'
-Plug 'vim-pandoc/vim-criticmarkup'
-"Plug 'balachia/vim-criticmarkup'
+"Plug 'vim-pandoc/vim-criticmarkup'
+Plug 'balachia/vim-criticmarkup'
+"Plug '~/Dropbox/Code/vim-criticmarkup'
 ""Plug 'vim-pandoc/vim-rmarkdown'
 "Plug 'sjl/gundo.vim'
 Plug 'junegunn/goyo.vim'
@@ -201,6 +202,7 @@ nnoremap <C-L> :nohl<CR><C-L>
 
 " remap leader
 let mapleader=","
+let maplocalleader=mapleader
 
 " vim-hardtime
 let g:hardtime_default_on = 1
@@ -420,52 +422,52 @@ let g:languagetool_jar='/usr/local/Cellar/languagetool/2.8/libexec/languagetool-
 " test test test test test
 " test test test test test
 
-" critic markup hacking time!
-nnoremap <leader>ed :set operatorfunc=CMDelOperator<cr>g@
-vnoremap <leader>ed :<c-u>call CMOperator(visualmode(),'<','>','{--','--}')<cr>
-nnoremap <leader>ea :set operatorfunc=CMAddOperator<cr>g@
-vnoremap <leader>ea :<c-u>call CMOperator(visualmode(),'<','>','{++','++}')<cr>
-nnoremap <leader>eh :set operatorfunc=CMHilOperator<cr>g@
-vnoremap <leader>eh :<c-u>call CMOperator(visualmode(),'<','>','{==','==}')<cr>
-nnoremap <leader>ec :set operatorfunc=CMComOperator<cr>g@
-vnoremap <leader>ec :<c-u>call CMOperator(visualmode(),'<','>','{>>','<<}')<cr>
-nnoremap <leader>es :set operatorfunc=CMSubOperator<cr>g@
-vnoremap <leader>es :<c-u>call CMOperator(visualmode(),'<','>','{~~','~>~~}')<cr>
+"" critic markup hacking time!
+"nnoremap <leader>ed :set operatorfunc=CMDelOperator<cr>g@
+"vnoremap <leader>ed :<c-u>call CMOperator(visualmode(),'<','>','{--','--}')<cr>
+"nnoremap <leader>ea :set operatorfunc=CMAddOperator<cr>g@
+"vnoremap <leader>ea :<c-u>call CMOperator(visualmode(),'<','>','{++','++}')<cr>
+"nnoremap <leader>eh :set operatorfunc=CMHilOperator<cr>g@
+"vnoremap <leader>eh :<c-u>call CMOperator(visualmode(),'<','>','{==','==}')<cr>
+"nnoremap <leader>ec :set operatorfunc=CMComOperator<cr>g@
+"vnoremap <leader>ec :<c-u>call CMOperator(visualmode(),'<','>','{>>','<<}')<cr>
+"nnoremap <leader>es :set operatorfunc=CMSubOperator<cr>g@
+"vnoremap <leader>es :<c-u>call CMOperator(visualmode(),'<','>','{~~','~>~~}')<cr>
 
-function! CMDelOperator(type)
-    call CMOperator(a:type,'[',']','{--','--}')
-endfunction
+"function! CMDelOperator(type)
+"    call CMOperator(a:type,'[',']','{--','--}')
+"endfunction
 
-function! CMAddOperator(type)
-    call CMOperator(a:type,'[',']','{++','++}')
-endfunction
+"function! CMAddOperator(type)
+"    call CMOperator(a:type,'[',']','{++','++}')
+"endfunction
 
-function! CMHilOperator(type)
-    call CMOperator(a:type,'[',']','{==','==}')
-endfunction
+"function! CMHilOperator(type)
+"    call CMOperator(a:type,'[',']','{==','==}')
+"endfunction
 
-function! CMComOperator(type)
-    call CMOperator(a:type,'[',']','{>>','<<}')
-endfunction
+"function! CMComOperator(type)
+"    call CMOperator(a:type,'[',']','{>>','<<}')
+"endfunction
 
-function! CMSubOperator(type)
-    call CMOperator(a:type,'[',']','{~~','~>~~}')
-endfunction
+"function! CMSubOperator(type)
+"    call CMOperator(a:type,'[',']','{~~','~>~~}')
+"endfunction
 
-function! CMOperator(type, m0, m1, t0, t1)
-    let pastem=&paste
-    set paste
+"function! CMOperator(type, m0, m1, t0, t1)
+"    let pastem=&paste
+"    set paste
 
-    if a:type ==# 'v' || a:type == 'char'
-        silent exe "normal! `" . a:m0 . "v`" . a:m1 . "d"
-        "silent exe "normal! i" . a:t0 . "\<esc>pa" . a:t1 . "\<esc>"
-        silent exe "normal! i" . a:t0 . "\<esc>a". a:t1 . "\<esc>g`[P"
-    elseif a:type ==# 'V' || a:type == 'line'
-        silent exe "normal! `" . a:m0 . "V`" . a:m1 . "d"
-        "silent exe "normal! O" . a:t0 . "\<esc>po" . a:t1 . "\<esc>"
-        silent exe "normal! O" . a:t0 . "\<cr>" . a:t1 . "\<esc>P"
-    endif
+"    if a:type ==# 'v' || a:type == 'char'
+"        silent exe "normal! `" . a:m0 . "v`" . a:m1 . "d"
+"        "silent exe "normal! i" . a:t0 . "\<esc>pa" . a:t1 . "\<esc>"
+"        silent exe "normal! i" . a:t0 . "\<esc>a". a:t1 . "\<esc>g`[P"
+"    elseif a:type ==# 'V' || a:type == 'line'
+"        silent exe "normal! `" . a:m0 . "V`" . a:m1 . "d"
+"        "silent exe "normal! O" . a:t0 . "\<esc>po" . a:t1 . "\<esc>"
+"        silent exe "normal! O" . a:t0 . "\<cr>" . a:t1 . "\<esc>P"
+"    endif
 
-    let &paste=pastem
-endfunction
+"    let &paste=pastem
+"endfunction
 
