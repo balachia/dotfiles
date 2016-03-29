@@ -102,6 +102,9 @@ alias vimcs="vim --servername VIM"
 # for better neovimming
 alias nv=nvim
 
+# homebrew setting
+export HOMEBREW_GITHUB_API_TOKEN=4543fcfa4ccccfaeba9dd61cd76f54f3919b375c
+
 # add mactex to path
 export PATH=/Library/Tex/texbin:$PATH
 

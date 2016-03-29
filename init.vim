@@ -63,6 +63,7 @@ Plug 'marcweber/vim-addon-mw-utils'
 Plug 'garbas/vim-snipmate'
 Plug 'kshenoy/vim-signature'
 Plug 'takac/vim-hardtime'
+Plug 'yonchu/accelerated-smooth-scroll'
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
 if filereadable(expand('~/.personal'))
