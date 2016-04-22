@@ -6,7 +6,7 @@ export ZSH=$HOME/.oh-my-zsh
 # Optionally, if you set this to "random", it'll load a random theme each
 # time that oh-my-zsh is loaded.
 #ZSH_THEME="robbyrussell"
-ZSH_THEME="michelebologna"
+#ZSH_THEME="michelebologna"
 #ZSH_THEME="maran"
 #ZSH_THEME="dpoggi"
 ZSH_THEME="dieter"
@@ -152,3 +152,5 @@ nls() {
     #ls -c ~/Dropbox/Notes/ | ag -i "$*"
     nvim -c ":Unite -start-insert grep:~/Dropbox/Notes:-iR:$*"
 }
+
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
