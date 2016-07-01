@@ -66,6 +66,8 @@ Plug 'garbas/vim-snipmate'
 Plug 'kshenoy/vim-signature'
 Plug 'takac/vim-hardtime'
 Plug 'yonchu/accelerated-smooth-scroll'
+Plug 'chrisbra/Colorizer'
+Plug 'mileszs/ack.vim'
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
 if filereadable(expand('~/.personal'))
@@ -139,6 +141,9 @@ set expandtab
 " next search
 nnoremap <C-L> :nohl<CR><C-L>
 
+" fzf plugin
+set rtp+=/usr/local/opt/fzf
+
 " remap leader
 let mapleader=","
 let maplocalleader=mapleader
@@ -148,7 +153,7 @@ nmap <Leader><Leader> <Plug>Sneak_s
 
 
 " vim-hardtime
-let g:hardtime_default_on = 1
+let g:hardtime_default_on = 0
 let g:hardtime_showmsg = 1
 let g:hardtime_maxcount = 2
 
@@ -160,7 +165,9 @@ if $TMUX != ""
 endif
 let R_nvimpager = "tab"
 let r_syntax_folding = 1
-set nofoldenable
+" r plugin hijacking my buffer switch key
+nmap <LocalLeader>cr <Plug>RRightComment
+"set nofoldenable
 
 " keybinds
 " remap escape
@@ -178,6 +185,16 @@ nnoremap <C-p> :Unite -start-insert file_rec/async<cr>
 "nnoremap ; :Unite -quick-match buffer<cr>
 nnoremap <Leader>; :Unite -start-insert buffer<cr>
 nnoremap <Leader>? :Unite -start-insert line<cr>
+
+" find shit with fzf
+nnoremap <C-p> :FZF<cr>
+
+" incorporate ag/ack search
+let g:ackprg = 'ag --vimgrep --smart-case'
+cnoreabbrev ag Ack
+cnoreabbrev aG Ack
+cnoreabbrev Ag Ack
+cnoreabbrev AG Ack
 
 
 " markdown openers
@@ -217,7 +234,7 @@ function! PanopyStart(args)
 endfunction
 
 nmap <Leader>map :w <bar> call PanopyStart(['panopy','pdfpp',expand('%')])<CR>
-nmap <Leader>mah :w <bar> call PanopyStart(['panopy','html',expand('%')])<CR>
+nmap <Leader>mah :w <bar> call PanopyStart(['panopy','mjhtml',expand('%')])<CR>
 nmap <Leader>mat :w <bar> call PanopyStart(['panopy','latexpp',expand('%')])<CR>
 
 " critic markdown word count
@@ -268,6 +285,12 @@ let g:pandoc#formatting#mode = 'h'
 let g:pandoc#formatting#textwidth = 80
 " we need a way to turn off auto formatting
 nmap <Leader>taf :call pandoc#formatting#ToggleAutoFormat()
+
+" let's try to disable pandoc folding
+"" HAHA I DID IT! FUCK FOLDS! THIS WAS THE SPEED ISSUE
+let g:pandoc#modules#disabled = ["folding"]
+
+
 
 " unite bibtex!
 let g:unite_bibtex_bib_files=[expand('~/Documents/library-clean.bib')]
