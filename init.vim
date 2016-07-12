@@ -142,7 +142,7 @@ set expandtab
 nnoremap <C-L> :nohl<CR><C-L>
 
 " fzf plugin
-set rtp+=/usr/local/opt/fzf
+set rtp+=~/.fzf
 
 " remap leader
 let mapleader=","
