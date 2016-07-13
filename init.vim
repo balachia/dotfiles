@@ -151,6 +151,8 @@ let maplocalleader=mapleader
 " vim sneak
 nmap <Leader><Leader> <Plug>Sneak_s
 
+" fuck folds
+set nofoldenable
 
 " vim-hardtime
 let g:hardtime_default_on = 0
