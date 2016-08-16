@@ -54,6 +54,7 @@ pandoc-json:
 latex:
     o: '%.tex'
     latex-engine: pdflatex
+    verbose: 
     filter:
         # - pandoc-citeproc
         # - ~/Dropbox/Code/misc/pandoc-filters/pandoc-internalref
@@ -118,10 +119,16 @@ pdfnb:
 # beamer
 
 beam:
-    __inherits__: pdf
+    latex-engine: lualatex
+    template: local-beamer.tex
+    o: '%.pdf'
     t: beamer
 
-
+beamtex:
+    latex-engine: lualatex
+    template: local-beamer.tex
+    o: '%.tex'
+    t: beamer
 
 ############################################################
 # various html shit
