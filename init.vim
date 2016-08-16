@@ -1,5 +1,5 @@
 "let &t_Co=256
-let $NVIM_TUI_ENABLE_TRUE_COLOR = 1
+"let $NVIM_TUI_ENABLE_TRUE_COLOR = 1
 
 " get os name
 let os=substitute(system('uname'), '\n', '', '')
@@ -68,6 +68,7 @@ Plug 'takac/vim-hardtime'
 Plug 'yonchu/accelerated-smooth-scroll'
 Plug 'chrisbra/Colorizer'
 Plug 'mileszs/ack.vim'
+Plug 'neomake/neomake'
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
 if filereadable(expand('~/.personal'))
@@ -79,6 +80,8 @@ endif
 
 call plug#end()
 
+set termguicolors
+
 "colorscheme Sunburst
 "colorscheme gardener
 "colorscheme ir_black
@@ -87,7 +90,9 @@ call plug#end()
 "colorscheme underwater
 "colorscheme pencil
 "colorscheme hybrid
+
 colorscheme badwolf
+"colorscheme pencil
 
 " BASIC SETUP TIME!
 filetype indent plugin on
@@ -183,7 +188,7 @@ nmap <Leader>gs :Gstatus<cr>
 
 " replace shit with unite
 "call unite#filters#matcher_default#use(['matcher_fuzzy'])
-nnoremap <C-p> :Unite -start-insert file_rec/async<cr>
+"nnoremap <C-p> :Unite -start-insert file_rec/async<cr>
 "nnoremap ; :Unite -quick-match buffer<cr>
 nnoremap <Leader>; :Unite -start-insert buffer<cr>
 nnoremap <Leader>? :Unite -start-insert line<cr>
@@ -361,6 +366,45 @@ command! Code silent! iunmap <buffer> .|
 nnoremap Q gwip
 autocmd FileType markdown,pandoc :Prose
 
+" light/dark colorschemes
+"function! s:lightline_update()
+    "if !exists('g:loaded_lightline')
+        "return
+    "endif
+    "try
+        "if g:colors_name =~# 'wombat\|solarized\|landscape\|jellybeans\|Tomorrow'
+            "let g:lightline.colorscheme = substitute(substitute(g:colors_name, '-', '_', 'g'), '256.*', '', '') .
+                        "\ (g:colors_name ==# 'solarized' ? '_' . &background : '')
+            "call lightline#init()
+            "call lightline#colorscheme()
+            "call lightline#update()
+        "endif
+    "catch
+    "endtry
+"endfunction
+
+function! s:lightline_update()
+    if !exists('g:loaded_lightline')
+        return
+    endif
+    try
+        call lightline#init()
+        call lightline#colorscheme()
+        call lightline#update()
+    catch
+    endtry
+endfunction
+
+
+command! Light set background=light |
+    \ colorscheme pencil |
+    \ let g:lightline.colorscheme = 'PaperColor' |
+    \ call s:lightline_update()
+command! Dark set background=dark |
+    \ colorscheme badwolf |
+    \ let g:lightline.colorscheme = 'landscape' |
+    \ call s:lightline_update()
+
 " fix broken markdown extension
 " autocmd BufNewFile,BufRead *.md set filetype=markdown
 "autocmd FileType pandoc setlocal tw=80 formatoptions+=t
@@ -403,6 +447,20 @@ autocmd BufNewFile,BufRead *.Rmd setlocal omnifunc=RmdOmnifunc
 
 " languagetool
 let g:languagetool_jar='/usr/local/Cellar/languagetool/2.8/libexec/languagetool-commandline.jar'
+
+" neomake
+"autocmd! BufWritePost * Neomake
+"let g:neomake_verbose = 3
+let g:neomake_open_list = 2
+let g:neomake_r_lintr_maker = {
+    \ 'args': [],
+    \ 'errorformat': 
+        \ '%W%f:%l:%c: style: %m,' .
+        \ '%W%f:%l:%c: warning: %m,' .
+        \ '%E%f:%l:%c: error: %m,',
+    \ 'exe': 'Rlinter.R'
+    \ }
+let g:neomake_r_enabled_makers = ['lintr']
 
 " test test test test test
 " test test test test test
