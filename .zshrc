@@ -125,6 +125,9 @@ export PATH=/Library/Tex/texbin:$PATH
 export PATH=~/Library/Haskell/bin:~/.cabal/bin:$PATH
 #export PATH=~/Library/Haskell/bin:$PATH
 
+# java shit
+export JAVA_HOME=$(/usr/libexec/java_home)
+
 # useful haskell stuff
 hoog() {
     hoogle $* | head
