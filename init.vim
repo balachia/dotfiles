@@ -69,6 +69,8 @@ Plug 'yonchu/accelerated-smooth-scroll'
 Plug 'chrisbra/Colorizer'
 Plug 'mileszs/ack.vim'
 Plug 'neomake/neomake'
+Plug 'mattn/emmet-vim'
+Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
 if filereadable(expand('~/.personal'))
@@ -163,6 +165,9 @@ set nofoldenable
 let g:hardtime_default_on = 0
 let g:hardtime_showmsg = 1
 let g:hardtime_maxcount = 2
+
+let g:deoplete#enable_at_startup = 1
+
 
 " VIM R plugin shit
 if $TMUX != "" 
