@@ -92,9 +92,13 @@ set termguicolors
 "colorscheme underwater
 "colorscheme pencil
 "colorscheme hybrid
+"colorscheme flatui
+"colorscheme hemisu
 
 colorscheme badwolf
 "colorscheme pencil
+"colorscheme summerfruit
+"colorscheme codeschool
 
 " BASIC SETUP TIME!
 filetype indent plugin on
@@ -402,13 +406,18 @@ endfunction
 
 
 command! Light set background=light |
-    \ colorscheme pencil |
+    \ colorscheme summerfruit |
     \ let g:lightline.colorscheme = 'PaperColor' |
     \ call s:lightline_update()
 command! Dark set background=dark |
     \ colorscheme badwolf |
     \ let g:lightline.colorscheme = 'landscape' |
     \ call s:lightline_update()
+
+let iterm_profile=$ITERM_PROFILE
+if iterm_profile=="Light"
+    :Light
+endif
 
 " fix broken markdown extension
 " autocmd BufNewFile,BufRead *.md set filetype=markdown

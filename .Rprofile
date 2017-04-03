@@ -21,4 +21,41 @@ if(interactive()){
     }
 }
 
+if(!exists('.env')) {
+    .env <- new.env()
+} else {
+    detach(.env)
+}
+
+.env$reloadRprofile <- function() { source('~/.Rprofile') }
+
+.env$objsize <- function(x) format(object.size(x), units='auto')
+
+.env$darkTheme <- function(verbose=FALSE) { .env$colorscheme <- 'dark'; setOutputColors256(verbose=verbose) }
+
+.env$lightTheme <- function(verbose=FALSE) {
+    .env$colorscheme <- 'light'
+    #setOutputColors256(normal=16, negnum=166, zero=142, number=130,
+    #                   date=97, string=62, const=29,
+    #                   false=161, true=35, infinite=33,
+    #                   stderr=27, verbose=verbose)
+    setOutputColors256(normal=16, negnum=124, zero=142, number=94,
+                       date=90, string=62, const=29,
+                       false=161, true=35, infinite=33,
+                       stderr=27, verbose=verbose)
+}
+
+if(!exists('colorscheme', env=.env)) {
+    if(Sys.getenv("ITERM_PROFILE") == "Light") {
+        .env$lightTheme()
+    } else {
+        .env$darkTheme()
+    }
+} else if(.env$colorscheme == 'dark') {
+    .env$darkTheme()
+} else {
+    .env$lightTheme()
+}
+
+attach(.env)
 
