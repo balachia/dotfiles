@@ -8,68 +8,72 @@ let os=substitute(system('uname'), '\n', '', '')
 set nocompatible
 
 " Vundle stuff
-filetype off
+" filetype off
 
 " set the runtime path to include Vundle and initialize
-set rtp+=~/.vim/bundle/Vundle.vim
-call vundle#begin()
+"set rtp+=~/.vim/bundle/Vundle.vim
+"call vundle#begin()
+call plug#begin('~/.vim/plugged')
 
 " let Vundle manage Vundle, required
 "Plugin 'gmarik/vundle'
-Plugin 'gmarik/Vundle.vim'
+"Plugin 'gmarik/Vundle.vim'
 
 " My bundles
-"Plugin 'godlygeek/csapprox'
-"Plugin 'Lokaltog/vim-distinguished'
-"Plugin 'jonathanfilip/vim-lucius'
-Plugin 'sickill/vim-sunburst'
-Plugin 'Vim-R-plugin'
-"Plugin 'bling/vim-airline'
-Plugin 'itchyny/lightline.vim'
-Plugin 'kien/ctrlp.vim'
-Plugin 'Lokaltog/vim-easymotion'
-Plugin 'tpope/vim-surround'
-Plugin 'scrooloose/syntastic'
-Plugin 'scrooloose/nerdcommenter'
-Plugin 'scrooloose/nerdtree'
-Plugin 'tpope/vim-fugitive'
-Plugin 'tpope/vim-unimpaired'
-Plugin 'chrisbra/csv.vim'
-"Plugin 'edkolev/tmuxline.vim'
-Plugin 'vim-pandoc/vim-pandoc'
-Plugin 'vim-pandoc/vim-pandoc-syntax'
-"Plugin 'vim-pandoc/vim-criticmarkup'
-Plugin 'balachia/vim-criticmarkup'
-"Plugin 'vim-pandoc/vim-rmarkdown'
-Plugin 'sjl/gundo.vim'
-Plugin 'junegunn/goyo.vim'
-"Plugin 'junegunn/limelight.vim'
-Plugin 'reedes/vim-wheel'
-Plugin 'reedes/vim-wordy'
-"Plugin 'ivanov/vim-ipython'
-"Plugin 'benmills/vimux'
-Plugin 'jpalardy/vim-slime'
-"Plugin 'epeli/slimux'
-Plugin 'vim-scripts/loremipsum'
-Plugin 'LanguageTool'
-Plugin 'vim-scripts/utl.vim'
-Plugin 'jceb/vim-orgmode'
-Plugin 'tomvanderlee/vim-kerboscript'
-Plugin 'terryma/vim-multiple-cursors'
-Plugin 'AsyncCommand'
-Plugin 'dhruvasagar/vim-table-mode'
+"Plug 'godlygeek/csapprox'
+"Plug 'Lokaltog/vim-distinguished'
+"Plug 'jonathanfilip/vim-lucius'
+Plug 'sickill/vim-sunburst'
+Plug 'sjl/badwolf'
+"Plug 'Vim-R-plugin'
+"Plug 'bling/vim-airline'
+Plug 'itchyny/lightline.vim'
+Plug 'kien/ctrlp.vim'
+Plug 'Lokaltog/vim-easymotion'
+Plug 'tpope/vim-surround'
+Plug 'scrooloose/syntastic'
+Plug 'scrooloose/nerdcommenter'
+Plug 'scrooloose/nerdtree'
+Plug 'tpope/vim-fugitive'
+Plug 'tpope/vim-unimpaired'
+Plug 'chrisbra/csv.vim'
+"Plug 'edkolev/tmuxline.vim'
+Plug 'vim-pandoc/vim-pandoc'
+Plug 'vim-pandoc/vim-pandoc-syntax'
+"Plug 'vim-pandoc/vim-criticmarkup'
+Plug 'balachia/vim-criticmarkup'
+"Plug 'vim-pandoc/vim-rmarkdown'
+Plug 'sjl/gundo.vim'
+Plug 'junegunn/goyo.vim'
+"Plug 'junegunn/limelight.vim'
+Plug 'reedes/vim-wheel'
+Plug 'reedes/vim-wordy'
+"Plug 'ivanov/vim-ipython'
+"Plug 'benmills/vimux'
+Plug 'jpalardy/vim-slime'
+"Plug 'epeli/slimux'
+Plug 'vim-scripts/loremipsum'
+Plug 'vim-scripts/LanguageTool'
+Plug 'vim-scripts/utl.vim'
+Plug 'jceb/vim-orgmode'
+Plug 'tomvanderlee/vim-kerboscript'
+Plug 'terryma/vim-multiple-cursors'
+"Plug 'AsyncCommand'
+Plug 'dhruvasagar/vim-table-mode'
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
 if filereadable(expand('~/.personal'))
-    Plugin 'kchmck/vim-coffee-script'
-    Plugin 'xolox/vim-misc'
-    Plugin 'xolox/vim-notes'
-    "Plugin 'suan/vim-instant-markdown'
+    Plug 'kchmck/vim-coffee-script'
+    Plug 'xolox/vim-misc'
+    Plug 'xolox/vim-notes'
+    "Plug 'suan/vim-instant-markdown'
 endif
 
-call vundle#end()
+"call vundle#end()
+call plug#end()
 
-colorscheme Sunburst
+"colorscheme Sunburst
+colorscheme badwolf
 
 " Attempt to determine the type of a file based on its name and possibly its
 " contents. Use this to allow intelligent auto-indenting for each filetype,
@@ -180,6 +184,10 @@ let vimrplugin_vimpager = "tabnew"
 let r_syntax_folding = 1
 let g:vimrplugin_insert_mode_cmds = 0
 set nofoldenable
+
+" remap leader
+let mapleader=","
+let maplocalleader=mapleader
 
 " keybinds
 " remap escape

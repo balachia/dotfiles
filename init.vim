@@ -9,13 +9,13 @@ call plug#begin('~/.vim/plugged')
 
 " My bundles
 Plug 'sickill/vim-sunburst'
-Plug 'The-Vim-Gardener'
+"Plug 'The-Vim-Gardener'
 Plug 'reedes/vim-colors-pencil'
 Plug 'flazz/vim-colorschemes'
 Plug 'w0ng/vim-hybrid'
 Plug 'sjl/badwolf'
 "Plug 'Vim-R-plugin'
-Plug 'jalvesaq/Nvim-R'
+"Plug 'jalvesaq/Nvim-R'
 Plug 'itchyny/lightline.vim'
 "Plug 'kien/ctrlp.vim'
 "Plug 'Lokaltog/vim-easymotion'
@@ -48,7 +48,7 @@ Plug 'reedes/vim-lexical'
 Plug 'reedes/vim-thematic'
 Plug 'jpalardy/vim-slime'
 Plug 'vim-scripts/loremipsum'
-Plug 'LanguageTool'
+Plug 'vim-scripts/LanguageTool'
 Plug 'vim-scripts/utl.vim'
 "Plug 'jceb/vim-orgmode'
 "Plug 'tomvanderlee/vim-kerboscript'
@@ -64,7 +64,7 @@ Plug 'tomtom/tlib_vim'
 Plug 'marcweber/vim-addon-mw-utils'
 Plug 'garbas/vim-snipmate'
 Plug 'kshenoy/vim-signature'
-Plug 'takac/vim-hardtime'
+"Plug 'takac/vim-hardtime'
 Plug 'yonchu/accelerated-smooth-scroll'
 Plug 'chrisbra/Colorizer'
 Plug 'mileszs/ack.vim'
@@ -164,11 +164,6 @@ nmap <Leader><Leader> <Plug>Sneak_s
 
 " fuck folds
 set nofoldenable
-
-" vim-hardtime
-let g:hardtime_default_on = 0
-let g:hardtime_showmsg = 1
-let g:hardtime_maxcount = 2
 
 let g:deoplete#enable_at_startup = 1
 

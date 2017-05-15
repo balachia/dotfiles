@@ -126,7 +126,7 @@ export PATH=~/Library/Haskell/bin:~/.cabal/bin:$PATH
 #export PATH=~/Library/Haskell/bin:$PATH
 
 # java shit
-export JAVA_HOME=$(/usr/libexec/java_home)
+#export JAVA_HOME=$(/usr/libexec/java_home)
 
 # useful haskell stuff
 hoog() {
@@ -148,7 +148,7 @@ fi
 [[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm" # Load RVM into a shell session *as a function*
 
 # tmuxifier
-eval "$(tmuxifier init -)"
+#eval "$(tmuxifier init -)"
 
 # vim-notes integration
 ne() {
