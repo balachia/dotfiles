@@ -39,8 +39,8 @@ if(!exists('.env')) {
     #                   date=97, string=62, const=29,
     #                   false=161, true=35, infinite=33,
     #                   stderr=27, verbose=verbose)
-    setOutputColors256(normal=16, negnum=124, zero=142, number=94,
-                       date=90, string=62, const=29,
+    setOutputColors256(normal=16, negnum=160, zero=142, number=55,
+                       date=136, string=62, const=29,
                        false=161, true=35, infinite=33,
                        stderr=27, verbose=verbose)
 }
