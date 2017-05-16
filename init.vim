@@ -84,20 +84,22 @@ call plug#end()
 
 set termguicolors
 
+"dark
 "colorscheme Sunburst
 "colorscheme gardener
 "colorscheme ir_black
 "colorscheme herald
 "colorscheme jellyx
 "colorscheme underwater
-"colorscheme pencil
 "colorscheme hybrid
+
+"light
+"colorscheme pencil
+"colorscheme summerfruit
 "colorscheme flatui
 "colorscheme hemisu
 
 colorscheme badwolf
-"colorscheme pencil
-"colorscheme summerfruit
 "colorscheme codeschool
 
 " BASIC SETUP TIME!
