@@ -2,7 +2,8 @@ __default__:
     s:
     S:
     r: markdown+simple_tables+table_captions+yaml_metadata_block+tex_math_double_backslash+grid_tables
-    bibliography: ~/Documents/library-clean.bib
+    #bibliography: ~/Documents/library-clean.bib
+    bibliography: ~/Documents/library.bib
     filter: pandoc-citeproc
 
 
@@ -33,7 +34,7 @@ crossref-test:
     R:
     latex-engine: pdflatex
     __pre__:
-        - criticmarkuphs %.md %.cm.md
+        - criticmarkuphs -i %.md -o %.cm.md
         - gpp -T -n --include ~/.pandoc/tex.gpp -x %.cm.md -o %.gpp.md -DGPPTEX=1
     __in__:
         - '%.gpp.md'
@@ -58,10 +59,12 @@ latex:
     filter:
         # - pandoc-citeproc
         # - ~/Dropbox/Code/misc/pandoc-filters/pandoc-internalref
+        - pandoc-include
         - pandoc-crossref
         - pandoc-citeproc
-        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-dropinenv
-        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-passthrough
+        - pandoc-citeproc-preamble
+        # - ~/Dropbox/Code/misc/pandoc-filters/pandoc-dropinenv
+        # - ~/Dropbox/Code/misc/pandoc-filters/pandoc-passthrough
 
 pdf:
     __inherits__: latex
@@ -75,7 +78,7 @@ latexpp:
     default-image-extension: eps
     __pre__:
         # - CriticMarkup.py %.md %.cm.md
-        - criticmarkuphs %.md %.cm.md
+        - criticmarkuphs -i %.md -o %.cm.md
         - gpp -T -n --include ~/.pandoc/tex.gpp -x %.cm.md -o %.gpp.md -DGPPTEX=1
     __in__:
         - '%.gpp.md'
@@ -138,7 +141,7 @@ html:
     template: default.html
     default-image-extension: png
     __pre__:
-        - criticmarkuphs %.md %.cm.md
+        - criticmarkuphs -i %.md -o %.cm.md
         - gpp -T -n --include ~/.pandoc/tex.gpp -x %.cm.md -o %.gpp.md -DGPPHTML=1
     __in__:
         - '%.gpp.md'
