@@ -1,0 +1,95 @@
+#
+# Executes commands at the start of an interactive session.
+#
+# Authors:
+#   Sorin Ionescu <sorin.ionescu@gmail.com>
+#
+
+# Source Prezto.
+if [[ -s "${ZDOTDIR:-$HOME}/.zprezto/init.zsh" ]]; then
+  source "${ZDOTDIR:-$HOME}/.zprezto/init.zsh"
+fi
+
+# Customize to your needs...
+
+# mess with path
+export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:$PATH
+
+# aliases
+alias l="ls -alh"
+alias nv=nvim
+alias vimcs="vim --servername VIM"
+
+# random applications that should have a CLI:
+alias matlab="/Applications/MATLAB_R2013a.app/bin/matlab -nodesktop"
+
+# homebrew setting
+export HOMEBREW_GITHUB_API_TOKEN=4543fcfa4ccccfaeba9dd61cd76f54f3919b375c
+
+# add mactex to path
+export PATH=/Library/Tex/texbin:$PATH
+
+# add cabal to path
+export PATH=~/Library/Haskell/bin:~/.cabal/bin:$PATH
+#export PATH=~/Library/Haskell/bin:$PATH
+
+# add go to path
+export GOPATH=${HOME}/.go
+export PATH=~/.go/bin:$PATH
+
+# java shit
+export JAVA_HOME=$(/usr/libexec/java_home)
+
+# useful haskell stuff
+hoog() {
+    hoogle $* | head
+}
+
+# default editor neovim! fall back to vim!
+if ! type "nvim" > /dev/null; then
+    export EDITOR='vim'
+else
+    export EDITOR='nvim'
+fi
+
+# for tmuxinator, must set default editor
+# probably for other things too...
+#[[ $HOST =~ ".stanford.edu" ]] && export PATH=~/.gem/ruby/1.9.1/bin:$PATH
+
+# load rvm slowish
+# something about ruby?
+rvm() {
+    [[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm" # Load RVM into a shell session *as a function*
+}
+
+# vim-notes integration
+ne() {
+    #vim -c ":Note $*" 
+    nvim -c ":Note $*" 
+}
+
+## New Note: calls vim notes plugin
+n() { 
+    #vim -c :Note
+    nvim -c :Note
+}
+
+# Searches Notes
+nls() {
+    #ls -c ~/Dropbox/Notes/ | egrep -i "$*"
+    #ls -c ~/Dropbox/Notes/ | ag -i "$*"
+    nvim -c ":Unite -start-insert grep:~/Dropbox/Notes:-iR:$*"
+}
+
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+
+# load nvm slow
+nvm() {
+    export NVM_DIR="/Users/avashevko/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"  # This loads nvm
+}
+
+wd() {
+  . /Users/avashevko/bin/wd/wd.sh
+}
+
