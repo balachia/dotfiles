@@ -8,69 +8,68 @@ let os=substitute(system('uname'), '\n', '', '')
 call plug#begin('~/.vim/plugged')
 
 " My bundles
+" colors
 Plug 'sickill/vim-sunburst'
 Plug 'The-Vim-Gardener'
 Plug 'reedes/vim-colors-pencil'
 Plug 'flazz/vim-colorschemes'
 Plug 'w0ng/vim-hybrid'
 Plug 'sjl/badwolf'
-"Plug 'Vim-R-plugin'
-Plug 'jalvesaq/Nvim-R'
+
 Plug 'itchyny/lightline.vim'
-"Plug 'kien/ctrlp.vim'
-"Plug 'Lokaltog/vim-easymotion'
+
+" motion
 Plug 'justinmk/vim-sneak'
+Plug 'kana/vim-textobj-user'
+Plug 'reedes/vim-wheel'
+Plug 'reedes/vim-textobj-sentence'
+Plug 'yonchu/accelerated-smooth-scroll'
+
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-repeat'
-"Plug 'scrooloose/syntastic'
+
 Plug 'scrooloose/nerdcommenter'
 Plug 'scrooloose/nerdtree'
 Plug 'tpope/vim-fugitive'
 Plug 'tpope/vim-unimpaired'
-Plug 'chrisbra/csv.vim'
-""Plug 'edkolev/tmuxline.vim'
-Plug 'vim-pandoc/vim-pandoc'
-Plug 'vim-pandoc/vim-pandoc-syntax'
-"Plug 'vim-pandoc/vim-criticmarkup'
-Plug 'balachia/vim-criticmarkup'
-"Plug '~/Dropbox/Code/vim-criticmarkup'
-""Plug 'vim-pandoc/vim-rmarkdown'
 "Plug 'sjl/gundo.vim'
 Plug 'junegunn/goyo.vim'
-""Plug 'junegunn/limelight.vim'
-Plug 'kana/vim-textobj-user'
 Plug 'reedes/vim-pencil'
-Plug 'reedes/vim-wheel'
 Plug 'reedes/vim-wordy'
-Plug 'reedes/vim-textobj-sentence'
-"Plug 'reedes/vim-litecorrect'
 Plug 'reedes/vim-lexical'
 Plug 'reedes/vim-thematic'
 Plug 'jpalardy/vim-slime'
-Plug 'vim-scripts/loremipsum'
-Plug 'LanguageTool'
-Plug 'vim-scripts/utl.vim'
-"Plug 'jceb/vim-orgmode'
-"Plug 'tomvanderlee/vim-kerboscript'
-Plug 'terryma/vim-multiple-cursors'
-Plug 'dhruvasagar/vim-table-mode'
-Plug 'gerw/vim-HiLinkTrace'
 Plug 'Shougo/vimproc.vim'
 Plug 'Shougo/unite.vim'
-"Plug 'termoshtt/unite-bibtex'
-Plug 'balachia/unite-bibtex'
 "Plug 'ZoomWin'
 Plug 'tomtom/tlib_vim'
 Plug 'marcweber/vim-addon-mw-utils'
 Plug 'garbas/vim-snipmate'
 Plug 'kshenoy/vim-signature'
-Plug 'takac/vim-hardtime'
-Plug 'yonchu/accelerated-smooth-scroll'
-Plug 'chrisbra/Colorizer'
 Plug 'mileszs/ack.vim'
 Plug 'neomake/neomake'
-Plug 'mattn/emmet-vim'
 Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
+
+" filetypes
+Plug 'jalvesaq/Nvim-R'
+Plug 'chrisbra/csv.vim'
+Plug 'vim-pandoc/vim-pandoc'
+Plug 'vim-pandoc/vim-pandoc-syntax'
+"Plug 'vim-pandoc/vim-criticmarkup'
+Plug 'balachia/vim-criticmarkup'
+"Plug 'termoshtt/unite-bibtex'
+"Plug 'balachia/unite-bibtex'
+Plug 'msprev/unite-bibtex'
+Plug 'mattn/emmet-vim'
+Plug 'chrisbra/Colorizer'
+
+" cool features
+Plug 'LanguageTool'
+Plug 'vim-scripts/utl.vim'
+Plug 'terryma/vim-multiple-cursors'
+Plug 'vim-scripts/loremipsum'
+Plug 'dhruvasagar/vim-table-mode'
+Plug 'gerw/vim-HiLinkTrace'
 
 " if on a personal computer (e.g. access to dropbox, internet, a screen)
 if filereadable(expand('~/.personal'))
@@ -167,13 +166,7 @@ nmap <Leader><Leader> <Plug>Sneak_s
 " fuck folds
 set nofoldenable
 
-" vim-hardtime
-let g:hardtime_default_on = 0
-let g:hardtime_showmsg = 1
-let g:hardtime_maxcount = 2
-
 let g:deoplete#enable_at_startup = 1
-
 
 " VIM R plugin shit
 if $TMUX != "" 
@@ -251,9 +244,13 @@ function! PanopyStart(args)
     let job = jobstart(a:args,pevent)
 endfunction
 
-nmap <Leader>map :w <bar> call PanopyStart(['panopy','pdfpp',expand('%')])<CR>
-nmap <Leader>mah :w <bar> call PanopyStart(['panopy','mjhtml',expand('%')])<CR>
-nmap <Leader>mat :w <bar> call PanopyStart(['panopy','latexpp',expand('%')])<CR>
+"nmap <Leader>map :w <bar> call PanopyStart(['panopy','pdfpp',expand('%')])<CR>
+"nmap <Leader>mah :w <bar> call PanopyStart(['panopy','mjhtml',expand('%')])<CR>
+"nmap <Leader>mat :w <bar> call PanopyStart(['panopy','latexpp',expand('%')])<CR>
+
+nmap <Leader>map :w <bar> NeomakeSh panopy pdfpp %<CR>
+nmap <Leader>mah :w <bar> NeomakeSh panopy mjhtml %<CR>
+nmap <Leader>mat :w <bar> NeomakeSh panopy latexpp %<CR>
 
 " critic markdown word count
 nmap <Leader>wc :echom system('TEST=$(mktemp); criticmarkuphs ' . expand('%') . ' $TEST; wc -w $TEST')<CR>
@@ -285,15 +282,39 @@ let g:lightline = {
             \ 'colorscheme': 'landscape',
             \ 'active': {
             \   'left': [ [ 'mode', 'paste' ],
-            \             [ 'fugitive', 'readonly', 'filename', 'modified' ] ]
+            \             [ 'fugitive', 'readonly', 'filename', 'modified', 'neomake' ] ],
+            \   'right': [ [ 'lineinfo' ],
+            \              [ 'percent' ],
+            \              [ 'fileformat', 'fileencoding', 'filetype' ] ]
             \ },
             \ 'component': {
-            \   'fugitive': '%{exists("*fugitive#head")?fugitive#head():""}'
+            \   'fugitive': '%{exists("*fugitive#head")?fugitive#head():""}',
+            \   'neomake': '%{!empty(neomake#GetJobs()) ? len(neomake#GetJobs()) . " NM" : ""}'
             \ },
             \ 'component_visible_condition': {
-            \   'fugitive': '(exists("*fugitive#head") && ""!=fugitive#head())'
+            \   'fugitive': '(exists("*fugitive#head") && ""!=fugitive#head())',
+            \   'neomake': '!(empty(neomake#GetJobs()))'
             \ }
             \ }
+
+function! ClistLength()
+    "echom 'start ' . reltimestr(reltime())
+    let clist_err=0
+    redir => test
+    silent! clist!
+    redir END
+    "echom 'stop ' . reltimestr(reltime())
+    return 0
+    if clist_err
+        let ret=0
+        "return 0
+    else
+        let ret=len(split(test, '\n'))
+        "return len(split(test, '\n'))
+    endif
+    echom ret
+    return ret
+endfunction
 
 " pandoc shit
 let g:pandoc#biblio#bibs = [expand('~/Documents/library-clean.bib')]
@@ -311,7 +332,9 @@ let g:pandoc#modules#disabled = ["folding"]
 
 
 " unite bibtex!
-let g:unite_bibtex_bib_files=[expand('~/Documents/library-clean.bib')]
+"let g:unite_bibtex_bib_files=[expand('~/Documents/library-clean.bib')]
+let g:unite_bibtex_bib_files=[expand('~/Documents/library.bib')]
+let g:unite_bibtex_cache_dir=$TMPDIR
 nmap <Leader>ct :Unite -start-insert bibtex<CR>
 imap <C-X>c <C-o>:Unite -start-insert bibtex<CR>
 
@@ -477,6 +500,11 @@ let g:neomake_r_lintr_maker = {
     \ 'exe': 'Rlinter.R'
     \ }
 let g:neomake_r_enabled_makers = ['lintr']
+
+augroup neomake_hooks
+    au!
+    autocmd User NeomakeJobFinished call lightline#update()
+augroup END
 
 " test test test test test
 " test test test test test
