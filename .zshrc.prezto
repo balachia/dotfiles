@@ -48,8 +48,10 @@ hoog() {
 # default editor neovim! fall back to vim!
 if ! type "nvim" > /dev/null; then
     export EDITOR='vim'
+    export VISUAL='vim'
 else
     export EDITOR='nvim'
+    export VISUAL='vim'
 fi
 
 # for tmuxinator, must set default editor
