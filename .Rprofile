@@ -45,17 +45,17 @@ if(!exists('.env')) {
                        stderr=27, verbose=verbose)
 }
 
-if(!exists('colorscheme', env=.env)) {
-    if(Sys.getenv("ITERM_PROFILE") == "Light") {
-        .env$lightTheme()
-    } else {
-        .env$darkTheme()
-    }
-} else if(.env$colorscheme == 'dark') {
-    .env$darkTheme()
-} else {
-    .env$lightTheme()
-}
+#if(!exists('colorscheme', env=.env)) {
+#    if(Sys.getenv("ITERM_PROFILE") == "Light") {
+#        .env$lightTheme()
+#    } else {
+#        .env$darkTheme()
+#    }
+#} else if(.env$colorscheme == 'dark') {
+#    .env$darkTheme()
+#} else {
+#    .env$lightTheme()
+#}
 
 attach(.env)
 
