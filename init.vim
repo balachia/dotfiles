@@ -28,7 +28,10 @@ Plug 'yonchu/accelerated-smooth-scroll'
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-repeat'
 
+" programming
+Plug 'majutsushi/tagbar'
 Plug 'scrooloose/nerdcommenter'
+
 Plug 'scrooloose/nerdtree'
 Plug 'tpope/vim-fugitive'
 Plug 'tpope/vim-unimpaired'
