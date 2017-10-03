@@ -181,22 +181,11 @@ let R_nvimpager = "tab"
 let r_syntax_folding = 1
 " r plugin hijacking my buffer switch key
 nmap <LocalLeader>cr <Plug>RRightComment
-"set nofoldenable
 
 " keybinds
-" remap escape
-"inoremap ;; <Esc>
-inoremap jk <Esc>
-"inoremap <Esc> <NOP>
-" convenient CtrlP
-":nmap ; :CtrlPBuffer<CR>
-"nmap ? :CtrlPLine<CR>
 nmap <Leader>gs :Gstatus<cr>
 
 " replace shit with unite
-"call unite#filters#matcher_default#use(['matcher_fuzzy'])
-"nnoremap <C-p> :Unite -start-insert file_rec/async<cr>
-"nnoremap ; :Unite -quick-match buffer<cr>
 nnoremap <Leader>; :Unite -start-insert buffer<cr>
 nnoremap <Leader>? :Unite -start-insert line<cr>
 
@@ -265,13 +254,6 @@ nnoremap <Leader>gy :Goyo<cr>
 " lightline updates caused a Goyo regression
 autocmd! User GoyoEnter call lightline#disable()
 autocmd! User GoyoLeave call lightline#enable()
-
-" vim-pencil time
-"augroup pencil
-    "autocmd!
-    "autocmd FileType markdown,mkd call pencil#init()
-    "autocmd FileType text         call pencil#init()
-"augroup END
 
 " textobj sentence time!
 augroup textobj_sentence
@@ -385,6 +367,7 @@ command! Prose inoremap <buffer> . .<C-G>u|
             \ inoremap <buffer> ! !<C-G>u|
             \ inoremap <buffer> ? ?<C-G>u|
             \ inoremap <buffer> , ,<C-G>u|
+            \ let g:toggle_prose = 'prose'|
             \ augroup PROSE|
             \   autocmd InsertEnter <buffer> set fo+=a|
             \   autocmd InsertLeave <buffer> set fo-=a|
@@ -396,6 +379,7 @@ command! Code silent! iunmap <buffer> .|
             \ silent! iunmap <buffer> !|
             \ silent! iunmap <buffer> ?|
             \ silent! iunmap <buffer> ,|
+            \ let g:toggle_prose = 'code'|
             \ silent! autocmd! PROSE * <buffer>
             "\ setlocal nospell list nowrap
             "\     tw=74 fo=cqr1 showbreak=… nu|
@@ -436,10 +420,12 @@ endfunction
 command! Light set background=light |
     \ colorscheme summerfruit |
     \ let g:lightline.colorscheme = 'PaperColor' |
+    \ let g:toggle_theme = 'light' |
     \ call s:lightline_update()
 command! Dark set background=dark |
     \ colorscheme badwolf |
     \ let g:lightline.colorscheme = 'landscape' |
+    \ let g:toggle_theme = 'dark' |
     \ call s:lightline_update()
 
 let iterm_profile=$ITERM_PROFILE
@@ -508,6 +494,34 @@ augroup neomake_hooks
     au!
     autocmd User NeomakeJobFinished call lightline#update()
 augroup END
+
+" toggles
+function! ToggleProse()
+    if !exists('g:toggle_prose')
+        let g:toggle_prose = 'code'
+    endif
+    if g:toggle_prose == 'prose'
+        :Code
+    else
+        :Prose
+    endif
+endfunction
+command! ToggleProse call ToggleProse()
+nnoremap <leader>top :silent! ToggleProse<CR>
+
+function! ToggleTheme()
+    if !exists('g:toggle_theme')
+        let g:toggle_theme = 'dark'
+    endif
+    if g:toggle_theme == 'dark'
+        :Light
+    else
+        :Dark
+    endif
+endfunction
+command! ToggleTheme call ToggleTheme()
+nnoremap <leader>tot :silent! ToggleTheme<CR>
+
 
 " test test test test test
 " test test test test test
