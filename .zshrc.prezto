@@ -95,3 +95,5 @@ wd() {
   . /Users/avashevko/bin/wd/wd.sh
 }
 
+# cmus tmux integration
+alias cmus='tmux new-session -A -D -s cmus reattach-to-user-namespace -l cmus'
