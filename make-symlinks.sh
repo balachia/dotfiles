@@ -1,6 +1,7 @@
 mkdir -p ~/.config/nvim
 mkdir -p ~/.emacs.d
-mkdir -p ~/.local/{bin,src,R/site-library}
+mkdir -p ~/.local/{bin,src,R}
+mkdir -p ~/.local/R/site-library
 
 ln -sf ~/.dotfiles/.tmux.conf ~
 ln -sf ~/.dotfiles/.vimrc ~
