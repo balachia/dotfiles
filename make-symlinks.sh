@@ -1,3 +1,6 @@
+mkdir -p ~/.config/nvim
+mkdir -p ~/.emacs.d
+
 ln -sf ~/.dotfiles/.tmux.conf ~
 ln -sf ~/.dotfiles/.vimrc ~
 ln -sf ~/.dotfiles/.Rprofile ~
