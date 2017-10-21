@@ -10,7 +10,7 @@ call plug#begin('~/.vim/plugged')
 " My bundles
 " colors
 Plug 'sickill/vim-sunburst'
-Plug 'The-Vim-Gardener'
+Plug 'vim-scripts/The-Vim-Gardener'
 Plug 'reedes/vim-colors-pencil'
 Plug 'flazz/vim-colorschemes'
 Plug 'w0ng/vim-hybrid'
@@ -23,13 +23,16 @@ Plug 'justinmk/vim-sneak'
 Plug 'kana/vim-textobj-user'
 Plug 'reedes/vim-wheel'
 Plug 'reedes/vim-textobj-sentence'
-Plug 'yonchu/accelerated-smooth-scroll'
+"Plug 'yonchu/accelerated-smooth-scroll'
+Plug 'yuttie/comfortable-motion.vim'
 
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-repeat'
 
 " programming
 Plug 'majutsushi/tagbar'
+Plug 'ludovicchabant/vim-gutentags'
+Plug 'airblade/vim-gitgutter'
 Plug 'scrooloose/nerdcommenter'
 
 Plug 'scrooloose/nerdtree'
@@ -53,8 +56,11 @@ Plug 'mileszs/ack.vim'
 Plug 'neomake/neomake'
 Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
 
-" filetypes
+"R
 Plug 'jalvesaq/Nvim-R'
+Plug 'mllg/vim-devtools-plugin'
+
+" filetypes
 Plug 'chrisbra/csv.vim'
 Plug 'vim-pandoc/vim-pandoc'
 Plug 'vim-pandoc/vim-pandoc-syntax'
@@ -67,7 +73,7 @@ Plug 'mattn/emmet-vim'
 Plug 'chrisbra/Colorizer'
 
 " cool features
-Plug 'LanguageTool'
+Plug 'vim-scripts/LanguageTool'
 Plug 'vim-scripts/utl.vim'
 Plug 'terryma/vim-multiple-cursors'
 Plug 'vim-scripts/loremipsum'
@@ -101,7 +107,7 @@ set termguicolors
 "colorscheme flatui
 "colorscheme hemisu
 
-colorscheme badwolf
+"colorscheme badwolf
 "colorscheme codeschool
 
 " BASIC SETUP TIME!
@@ -185,8 +191,14 @@ let r_syntax_folding = 1
 " r plugin hijacking my buffer switch key
 nmap <LocalLeader>cr <Plug>RRightComment
 
+" ============================================================
 " keybinds
 nmap <Leader>gs :Gstatus<cr>
+map <F8> :NERDTreeFocus<CR>
+
+" comfortable scroll
+noremap <silent> <ScrollWheelDown> :call comfortable_motion#flick(30)<CR>
+noremap <silent> <ScrollWheelUp>   :call comfortable_motion#flick(-30)<CR>
 
 " replace shit with unite
 nnoremap <Leader>; :Unite -start-insert buffer<cr>
@@ -246,6 +258,8 @@ endfunction
 nmap <Leader>map :w <bar> NeomakeSh panopy pdfpp %<CR>
 nmap <Leader>mah :w <bar> NeomakeSh panopy mjhtml %<CR>
 nmap <Leader>mat :w <bar> NeomakeSh panopy latexpp %<CR>
+nmap <Leader>marm :w <bar> NeomakeSh Rscript -e "knitr::knit('%')"<CR>
+nmap <Leader>marh :w <bar> NeomakeSh Rscript -e "rmarkdown::render('%', output_format='html_document')"<CR>
 
 " critic markdown word count
 nmap <Leader>wc :echom system('TEST=$(mktemp); criticmarkuphs ' . expand('%') . ' $TEST; wc -w $TEST')<CR>
@@ -421,7 +435,7 @@ endfunction
 
 
 command! Light set background=light |
-    \ colorscheme summerfruit |
+    \ colorscheme autumnleaf |
     \ let g:lightline.colorscheme = 'PaperColor' |
     \ let g:toggle_theme = 'light' |
     \ call s:lightline_update()
@@ -432,8 +446,14 @@ command! Dark set background=dark |
     \ call s:lightline_update()
 
 let iterm_profile=$ITERM_PROFILE
-if iterm_profile=="Light"
-    :Light
+"if iterm_profile=="Light"
+"    :Light
+"else
+"    :Dark
+"endif
+
+if !exists('g:toggle_theme')
+    :Dark
 endif
 
 " fix broken markdown extension
@@ -475,6 +495,17 @@ function! RmdOmnifunc(findstart, base)
 endfunction
 
 autocmd BufNewFile,BufRead *.Rmd setlocal omnifunc=RmdOmnifunc
+
+" multiple cursors fix
+" Called once right before you start selecting multiple cursors
+function! Multiple_cursors_before()
+    :call deoplete#disable()
+endfunction
+
+" Called once only when the multiple selection is canceled (default <Esc>)
+function! Multiple_cursors_after()
+    :call deoplete#enable()
+endfunction
 
 " languagetool
 let g:languagetool_jar='/usr/local/Cellar/languagetool/2.8/libexec/languagetool-commandline.jar'
@@ -524,6 +555,18 @@ function! ToggleTheme()
 endfunction
 command! ToggleTheme call ToggleTheme()
 nnoremap <leader>tot :silent! ToggleTheme<CR>
+
+
+" r devtools
+augroup rdev
+    autocmd!
+    autocmd FileType r,rmd nnoremap <buffer> <leader>rdl :RLoadPackage<CR>
+    autocmd FileType r,rmd nnoremap <buffer> <leader>rdc :RCheckPackage<CR>
+    autocmd FileType r,rmd nnoremap <buffer> <leader>rdt :RTestPackage<CR>
+    autocmd FileType r,rmd nnoremap <buffer> <leader>rdd :RDocumentPackage<CR>
+    autocmd FileType r,rmd nnoremap <buffer> <leader>rdb :RBuildPackage<CR>
+    autocmd FileType r,rmd nnoremap <buffer> <leader>rdi :RInstallPackage<CR>
+augroup END
 
 
 " test test test test test

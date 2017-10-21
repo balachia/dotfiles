@@ -45,6 +45,15 @@ if(!exists('.env')) {
                        stderr=27, verbose=verbose)
 }
 
+.env$setwidth_fun <- function(howWide=Sys.getenv("COLUMNS")) {
+    cat("Set width:", howWide,'\n')
+    options(width=as.integer(howWide))
+}
+
+makeActiveBinding(".sw", .env$setwidth_fun, baseenv())
+makeActiveBinding(".lt", .env$lightTheme, baseenv())
+makeActiveBinding(".dt", .env$darkTheme, baseenv())
+
 #if(!exists('colorscheme', env=.env)) {
 #    if(Sys.getenv("ITERM_PROFILE") == "Light") {
 #        .env$lightTheme()
