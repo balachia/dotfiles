@@ -16,7 +16,6 @@ if(interactive()){
         setOutputColors256(verbose = FALSE)
     }
     #library(setwidth)
-    library(vimcom)
     if(Sys.getenv("NVIMR_TMPDIR") != ""){
         options(nvimcom.verbose = 1) # To know nvimcom was successfully loaded
         library(nvimcom)
