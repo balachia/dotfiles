@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 install.packages('devtools')
-devtools::install_github("hadley/devtools")
+#devtools::install_github("hadley/devtools")
 
 devtools::install_github("jalvesaq/colorout")
 
