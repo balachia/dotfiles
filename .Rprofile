@@ -1,6 +1,6 @@
 options(repos=c(CRAN="https://cloud.r-project.org"))
 
-.libPaths(c(.libPaths(), '~/.local/R/site-library'))
+.libPaths(c('~/.local/R/site-library', .libPaths()))
 
 # Lines added by the Vim-R-plugin command :RpluginConfig (2014-Feb-23 13:47):
 if(interactive()){
