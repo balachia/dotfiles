@@ -32,7 +32,10 @@ if(!exists('.env')) {
 
 .env$objsize <- function(x) format(object.size(x), units='auto')
 
-.env$darkTheme <- function(verbose=FALSE) { .env$colorscheme <- 'dark'; setOutputColors256(verbose=verbose) }
+.env$darkTheme <- function(verbose=FALSE) {
+    .env$colorscheme <- 'dark'
+    setOutputColors256(verbose=verbose)
+}
 
 .env$lightTheme <- function(verbose=FALSE) {
     .env$colorscheme <- 'light'
@@ -49,6 +52,15 @@ if(!exists('.env')) {
 .env$setwidth_fun <- function(howWide=Sys.getenv("COLUMNS")) {
     cat("Set width:", howWide,'\n')
     options(width=as.integer(howWide))
+}
+
+if(!exists('colorscheme', env=.env)) {
+    hour <- as.numeric(format(Sys.time(), '%H'))
+    if(hour >= 8 && hour < 20) {
+        .env$lightTheme()
+    } else {
+        .env$darkTheme()
+    }
 }
 
 makeActiveBinding(".sw", .env$setwidth_fun, baseenv())

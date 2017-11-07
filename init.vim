@@ -71,6 +71,7 @@ Plug 'balachia/vim-criticmarkup'
 Plug 'msprev/unite-bibtex'
 Plug 'mattn/emmet-vim'
 Plug 'chrisbra/Colorizer'
+Plug 'lervag/vimtex'
 
 " cool features
 Plug 'vim-scripts/LanguageTool'
@@ -262,8 +263,8 @@ nmap <Leader>marm :w <bar> NeomakeSh Rscript -e "knitr::knit('%')"<CR>
 nmap <Leader>marh :w <bar> NeomakeSh Rscript -e "rmarkdown::render('%', output_format='html_document')"<CR>
 
 " critic markdown word count
-nmap <Leader>wc :echom system('TEST=$(mktemp); criticmarkuphs ' . expand('%') . ' $TEST; wc -w $TEST')<CR>
-"nmap <Leader>wc :echom system('TEST=$(mktemp); criticmarkuphs ' . expand('%') . ' $TEST; echo word count: $(cat $TEST | wc -w)')<CR>
+autocmd! Filetype markdown,pandoc nmap <buffer> <Leader>wc :echom system('TEST=$(mktemp); criticmarkuphs ' . expand('%') . ' $TEST; wc -w $TEST')<CR>
+autocmd! Filetype tex nmap <buffer> <Leader>wc :VimtexCountWords<cr>
 
 " Goyo
 let g:goyo_width=90
@@ -271,6 +272,9 @@ nnoremap <Leader>gy :Goyo<cr>
 " lightline updates caused a Goyo regression
 autocmd! User GoyoEnter call lightline#disable()
 autocmd! User GoyoLeave call lightline#enable()
+
+" vimtex!
+"let g:vimtex_view_method = 'skim'
 
 " textobj sentence time!
 augroup textobj_sentence
@@ -453,7 +457,11 @@ let iterm_profile=$ITERM_PROFILE
 "endif
 
 if !exists('g:toggle_theme')
-    :Dark
+    if strftime("%H") >= 8 && strftime("%H") < 20
+        :Light
+    else
+        :Dark
+    endif
 endif
 
 " fix broken markdown extension
