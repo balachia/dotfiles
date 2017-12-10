@@ -75,7 +75,8 @@ latexpp:
     o: '%.tex'
     R:
     latex-engine: pdflatex
-    default-image-extension: eps
+    default-image-extension: pdf
+    #default-image-extension: eps
     __pre__:
         # - CriticMarkup.py %.md %.cm.md
         - criticmarkuphs -i %.md -o %.cm.md

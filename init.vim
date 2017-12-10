@@ -217,7 +217,7 @@ cnoreabbrev AG Ack
 
 
 " markdown openers
-nmap <Leader>vm :!open -a "Marked 2" %<CR>
+nmap <Leader>vm :!open -a "Marked 2" %:r.md<CR>
 nmap <Leader>vp :!open %:r.pdf<CR>
 nmap <Leader>vt :e %:r.tex<CR>
 nmap <Leader>vh :!open %:r.html<CR>
@@ -256,14 +256,14 @@ endfunction
 "nmap <Leader>mah :w <bar> call PanopyStart(['panopy','mjhtml',expand('%')])<CR>
 "nmap <Leader>mat :w <bar> call PanopyStart(['panopy','latexpp',expand('%')])<CR>
 
-nmap <Leader>map :w <bar> NeomakeSh panopy pdfpp %<CR>
-nmap <Leader>mah :w <bar> NeomakeSh panopy mjhtml %<CR>
-nmap <Leader>mat :w <bar> NeomakeSh panopy latexpp %<CR>
-nmap <Leader>marm :w <bar> NeomakeSh Rscript -e "knitr::knit('%')"<CR>
-nmap <Leader>marh :w <bar> NeomakeSh Rscript -e "rmarkdown::render('%', output_format='html_document')"<CR>
+nmap <Leader>map :w <bar> NeomakeSh panopy pdfpp %:r.md<CR>
+nmap <Leader>mah :w <bar> NeomakeSh panopy mjhtml %:r.md<CR>
+nmap <Leader>mat :w <bar> NeomakeSh panopy latexpp %:r.md<CR>
+nmap <Leader>marm :w <bar> NeomakeSh Rscript -e "knitr::knit('%:r.Rmd')"<CR>
+nmap <Leader>marh :w <bar> NeomakeSh Rscript -e "rmarkdown::render('%:r.Rmd', output_format='html_document')"<CR>
 
 " critic markdown word count
-autocmd! Filetype markdown,pandoc nmap <buffer> <Leader>wc :echom system('TEST=$(mktemp); criticmarkuphs ' . expand('%') . ' $TEST; wc -w $TEST')<CR>
+autocmd! Filetype markdown,pandoc,rmd nmap <buffer> <Leader>wc :echom system('TEST=$(mktemp); criticmarkuphs ' . expand('%') . ' $TEST; wc -w $TEST')<CR>
 autocmd! Filetype tex nmap <buffer> <Leader>wc :VimtexCountWords<cr>
 
 " Goyo
@@ -288,16 +288,18 @@ let g:lightline = {
             \ 'colorscheme': 'landscape',
             \ 'active': {
             \   'left': [ [ 'mode', 'paste' ],
-            \             [ 'fugitive', 'readonly', 'filename', 'modified', 'neomake' ] ],
+            \             [ 'fugitive', 'readonly', 'filename', 'prose', 'modified', 'neomake' ] ],
             \   'right': [ [ 'lineinfo' ],
             \              [ 'percent' ],
             \              [ 'fileformat', 'fileencoding', 'filetype' ] ]
             \ },
             \ 'component': {
+            \   'prose': '%{exists("toggle_prose")?(toggle_prose=="prose"?"PR":"CD"):""}',
             \   'fugitive': '%{exists("*fugitive#head")?fugitive#head():""}',
             \   'neomake': '%{!empty(neomake#GetJobs()) ? len(neomake#GetJobs()) . " NM" : ""}'
             \ },
             \ 'component_visible_condition': {
+            \   'prose': '(exists("toggle_prose"))',
             \   'fugitive': '(exists("*fugitive#head") && ""!=fugitive#head())',
             \   'neomake': '!(empty(neomake#GetJobs()))'
             \ }
@@ -406,7 +408,7 @@ command! Code silent! iunmap <buffer> .|
             "\     tw=74 fo=cqr1 showbreak=… nu|
 
 nnoremap Q gwip
-autocmd FileType markdown,pandoc :Prose
+autocmd FileType markdown,pandoc,rmd :Prose
 
 " light/dark colorschemes
 "function! s:lightline_update()
