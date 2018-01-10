@@ -106,6 +106,17 @@ pdfpp:
         - rm %.cm.md
         - rm %.gpp.md
 
+aompdfpp:
+    __inherits__: pdfpp
+    csl: /Users/avashevko/.pandoc/csl/academy-of-management-journal.csl
+    template: aom.latex
+    M: geometry=margin=1in
+
+anonpdfpp:
+    __inherits__: pdfpp
+    M:
+        - author=''
+
 pdfnb:
     __inherits__: latexnb
     __post__:
