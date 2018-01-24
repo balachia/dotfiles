@@ -97,3 +97,11 @@ wd() {
 
 # cmus tmux integration
 alias cmus='tmux new-session -A -D -s cmus reattach-to-user-namespace -l cmus'
+
+# make runnable
+nvx() {
+    touch $*
+    chmod +x $*
+    nv $*
+}
+
