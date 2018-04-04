@@ -37,6 +37,9 @@ export PATH=~/Library/Haskell/bin:~/.cabal/bin:$PATH
 export GOPATH=${HOME}/.go
 export PATH=~/.go/bin:$PATH
 
+# add conda to path
+export PATH=/usr/local/miniconda3/bin:$PATH
+
 # java shit
 export JAVA_HOME=$(/usr/libexec/java_home)
 
