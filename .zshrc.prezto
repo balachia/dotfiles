@@ -15,6 +15,9 @@ fi
 # mess with path
 export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:$PATH
 
+# color theming
+[ -f ~/.theme ] && theme $(cat .theme)
+
 # aliases
 alias l="ls -alh"
 alias nv=nvim
@@ -107,4 +110,3 @@ nvx() {
     chmod +x $*
     nv $*
 }
-
