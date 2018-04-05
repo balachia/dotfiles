@@ -459,7 +459,14 @@ let iterm_profile=$ITERM_PROFILE
 "endif
 
 if !exists('g:toggle_theme')
-    if strftime("%H") >= 8 && strftime("%H") < 20
+    if filereadable(expand('~/.theme'))
+        let user_theme=system('cat ~/.theme')
+        if user_theme=='light'
+            :Light
+        else
+            :Dark
+        endif
+    elseif strftime("%H") >= 8 && strftime("%H") < 20
         :Light
     else
         :Dark
