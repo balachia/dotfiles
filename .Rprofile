@@ -56,11 +56,18 @@ if(interactive()) {
     }
 
     if(!exists('colorscheme', env=.env)) {
-        hour <- as.numeric(format(Sys.time(), '%H'))
-        if(hour >= 8 && hour < 20) {
-            .env$lightTheme()
+        if(file.exists('~/.theme')) {
+            user.theme <- readLines('~/.theme', warn=FALSE)
+            switch(user.theme,
+                   'light'=.env$lightTheme(),
+                   'dark'=.env$darkTheme())
         } else {
-            .env$darkTheme()
+            hour <- as.numeric(format(Sys.time(), '%H'))
+            if(hour >= 8 && hour < 20) {
+                .env$lightTheme()
+            } else {
+                .env$darkTheme()
+            }
         }
     }
 
