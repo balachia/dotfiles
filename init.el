@@ -13,6 +13,9 @@
 ;; Enable transient mark mode
 (transient-mark-mode 1)
 
+;; enable parens mode
+(show-paren-mode)
+
 ;;;;Org mode configuration
 ;; Enable Org mode
 (require 'org)
@@ -21,15 +24,27 @@
 ;; The above is the default in recent emacsen
 
 ;; themes
-(defun theme-toggle ()
+(defun theme-light () (interactive)
+       (load-theme 'material-light t))
+(defun theme-dark () (interactive)
+       (load-theme 'molokai t))
+
+(defun toggle-theme ()
   (interactive)
-  (let* ((ring '(material material-light))
+  (let* ((ring '(theme-dark theme-light))
          (current (if (get 'theme-toggle 'state) (get 'theme-toggle 'state) -1))
          (next-idx (% (+ current 1) (length ring)))
          (next (nth next-idx ring))
          )
   (put 'theme-toggle 'state next-idx)
-  (load-theme next t)))
+  (funcall next)))
 
-(theme-toggle)
+(if (file-exists-p (expand-file-name "~/.theme"))
+    (with-temp-buffer (insert-file-contents (expand-file-name "~/.theme"))
+		      (if (string-equal (buffer-string) "light")
+			  (theme-light)
+			  (theme-dark)))
+    (toggle-theme))
 
+;; import vim keybinds
+(define-key evil-normal-state-map ",tot" 'toggle-theme)
