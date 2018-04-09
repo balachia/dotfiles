@@ -6,3 +6,6 @@ set -g status-right '#(battery -pte) #[fg=yellow]#(sysctl -n vm.loadavg | cut -d
 #set -g status-right '#(battery -pt)'
 #set -g status-right 'test #(battery -pt) test'
 #set -g status-right '#[fg=yellow]#(sysctl -n vm.loadavg | cut -d " " -f 2-4)#[default] #[fg=white]%H:%M#[default]'
+
+# copy paste
+bind -T copy-mode-vi y send -X copy-pipe-and-cancel "reattach-to-user-namespace pbcopy"
