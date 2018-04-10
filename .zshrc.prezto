@@ -99,7 +99,7 @@ nvm() {
 }
 
 wd() {
-  . $HOME/avashevko/.local/src/wd/wd.sh
+  . $HOME/.local/src/wd/wd.sh
 }
 
 # cmus tmux integration
