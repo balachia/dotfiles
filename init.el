@@ -26,6 +26,7 @@
 ;; git
 (define-key evil-normal-state-map ",gs" 'magit-status)
 (require 'evil-magit)
+(require 'evil-ediff)
 
 ;; themes
 (defun theme-light () (interactive)
