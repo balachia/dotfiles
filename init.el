@@ -23,6 +23,10 @@
 ;; (add-to-list 'auto-mode-alist '("\\.org$" . org-mode))
 ;; The above is the default in recent emacsen
 
+;; git
+(define-key evil-normal-state-map ",gs" 'magit-status)
+(require 'evil-magit)
+
 ;; themes
 (defun theme-light () (interactive)
        (load-theme 'material-light t))
