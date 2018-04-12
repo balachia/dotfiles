@@ -16,6 +16,10 @@
 ;; enable parens mode
 (show-paren-mode)
 
+;; line numbers
+(add-hook 'prog-mode-hook 'linum-mode)
+(setq linum-format "%d ")
+
 ;;;;Org mode configuration
 ;; Enable Org mode
 (require 'org)
@@ -27,6 +31,30 @@
 (define-key evil-normal-state-map ",gs" 'magit-status)
 (require 'evil-magit)
 (require 'evil-ediff)
+
+;; ess
+(defun my-ess-start-R ()
+  (interactive)
+  (if (not (member "*R*" (mapcar (function buffer-name) (buffer-list))))
+      (progn
+	(delete-other-windows)
+	(setq w1 (selected-window))
+	(setq w1name (buffer-name))
+	(setq w2 (split-window w1 nil t))
+	(R)
+	(set-window-buffer w2 "*R*")
+	(set-window-buffer w1 w1name))))
+
+(setq ess-ask-for-ess-directory nil)
+;(setq inferior-ess-own-frame t)
+;(setq inferior-ess-same-window nil)
+
+;; basically, redo nvim-r bindings
+(define-key evil-normal-state-map ",rf" 'my-ess-start-R)
+(define-key evil-normal-state-map ",l" 'ess-eval-line)
+(define-key evil-normal-state-map ",d" 'ess-eval-line-and-step)
+(define-key evil-normal-state-map ",pa" 'ess-eval-paragraph-and-step)
+(define-key evil-normal-state-map ",aa" 'ess-eval-buffer)
 
 ;; themes
 (defun theme-light () (interactive)
