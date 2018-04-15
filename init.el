@@ -47,6 +47,13 @@
 (require 'evil-surround)
 (global-evil-surround-mode 1)
 
+;; helm
+(require 'helm)
+(require 'helm-config)
+(helm-mode 1)
+(global-set-key (kbd "C-c h") 'helm-command-prefix)
+(global-unset-key (kbd "C-x c"))
+
 ;; ess
 (defun my-ess-start-R ()
   (interactive)
