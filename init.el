@@ -54,6 +54,9 @@
 (global-set-key (kbd "C-c h") 'helm-command-prefix)
 (global-unset-key (kbd "C-x c"))
 
+(evil-leader/set-key
+  ";" 'switch-to-buffer)
+
 ;; ess
 (defun my-ess-start-R ()
   (interactive)
