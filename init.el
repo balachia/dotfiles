@@ -10,6 +10,11 @@
 (require 'evil)
 (evil-mode 1)
 
+;; Enable evil-leader
+(require 'evil-leader)
+(global-evil-leader-mode)
+(evil-leader/set-leader ",")
+
 ;; Enable transient mark mode
 (transient-mark-mode 1)
 
@@ -28,9 +33,19 @@
 ;; The above is the default in recent emacsen
 
 ;; git
-(define-key evil-normal-state-map ",gs" 'magit-status)
 (require 'evil-magit)
 (require 'evil-ediff)
+(evil-leader/set-key
+ "gs" 'magit-status)
+;; (define-key evil-normal-state-map ",gs" 'magit-status)
+
+;; nerd-commenter
+(evil-leader/set-key
+ "cl" 'evilnc-comment-or-uncomment-lines)
+
+;; surround
+(require 'evil-surround)
+(global-evil-surround-mode 1)
 
 ;; ess
 (defun my-ess-start-R ()
