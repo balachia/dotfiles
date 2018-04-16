@@ -573,6 +573,26 @@ endfunction
 command! ToggleTheme call ToggleTheme()
 nnoremap <leader>tot :silent! ToggleTheme<CR>
 
+function! ToggleWheel()
+    if !exists('g:toggle_wheel')
+        let g:toggle_wheel = 'normal'
+    endif
+    if g:toggle_wheel == 'normal'
+        nnoremap <C-j> j
+        nnoremap <C-k> k
+        nmap j <Plug>(WheelDown)
+        nmap k <Plug>(WheelUp)
+        let g:toggle_wheel = 'wheel'
+    else
+        nunmap j
+        nunmap k
+        nmap <C-j> <Plug>(WheelDown)
+        nmap <C-k> <Plug>(WheelUp)
+        let g:toggle_wheel = 'normal'
+    endif
+endfunction
+nnoremap <leader>tow :call ToggleWheel()<CR>
+
 
 " r devtools
 augroup rdev
