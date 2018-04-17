@@ -11,7 +11,7 @@ call plug#begin('~/.vim/plugged')
 " colors
 Plug 'sickill/vim-sunburst'
 Plug 'vim-scripts/The-Vim-Gardener'
-Plug 'reedes/vim-colors-pencil'
+"Plug 'reedes/vim-colors-pencil'
 Plug 'flazz/vim-colorschemes'
 Plug 'w0ng/vim-hybrid'
 Plug 'sjl/badwolf'
@@ -40,7 +40,7 @@ Plug 'tpope/vim-fugitive'
 Plug 'tpope/vim-unimpaired'
 "Plug 'sjl/gundo.vim'
 Plug 'junegunn/goyo.vim'
-Plug 'reedes/vim-pencil'
+"Plug 'reedes/vim-pencil'
 Plug 'reedes/vim-wordy'
 Plug 'reedes/vim-lexical'
 Plug 'reedes/vim-thematic'
@@ -195,7 +195,7 @@ nmap <LocalLeader>cr <Plug>RRightComment
 " ============================================================
 " keybinds
 nmap <Leader>gs :Gstatus<cr>
-map <F8> :NERDTreeFocus<CR>
+"map <F8> :NERDTreeFocus<CR>
 
 " comfortable scroll
 noremap <silent> <ScrollWheelDown> :call comfortable_motion#flick(30)<CR>
@@ -210,11 +210,6 @@ nnoremap <C-p> :FZF<cr>
 
 " incorporate ag/ack search
 let g:ackprg = 'ag --vimgrep --smart-case'
-cnoreabbrev ag Ack
-cnoreabbrev aG Ack
-cnoreabbrev Ag Ack
-cnoreabbrev AG Ack
-
 
 " markdown openers
 nmap <Leader>vm :!open -a "Marked 2" %:r.md<CR>
@@ -223,44 +218,11 @@ nmap <Leader>vt :e %:r.tex<CR>
 nmap <Leader>vh :!open %:r.html<CR>
 
 " markdown makers
-nmap <Leader>mp :w <bar> !panopy pdfpp %<CR>
-nmap <Leader>mt :w <bar> !panopy latexpp %<CR>
-nmap <Leader>mh :w <bar> !panopy html %<CR>
-
-" rewrite for neovim job control
-function! PanopyStart(args)
-    echom 'start: ' . join(a:args)
-    if !exists("g:panopy_temp_name")
-        let g:panopy_temp_name=tempname()
-    endif
-    let tmp = g:panopy_temp_name
-    call writefile(a:args,tmp,'w')
-    let pevent = {'temp_name':tmp}
-    function pevent.on_stdout(job_id,data)
-        call writefile(a:data,self.temp_name,'a')
-    endfunction
-    function pevent.on_stderr(job_id,data)
-        call writefile(a:data,self.temp_name,'a')
-    endfunction
-    function pevent.on_exit(job_id,data)
-        let tab = tabpagenr()
-        "exe 'tabnew' . self.temp_name
-        "exe 'tabnext' . tab
-        exe 'split' . self.temp_name
-        echom 'panopy done'
-    endfunction
-    let job = jobstart(a:args,pevent)
-endfunction
-
-"nmap <Leader>map :w <bar> call PanopyStart(['panopy','pdfpp',expand('%')])<CR>
-"nmap <Leader>mah :w <bar> call PanopyStart(['panopy','mjhtml',expand('%')])<CR>
-"nmap <Leader>mat :w <bar> call PanopyStart(['panopy','latexpp',expand('%')])<CR>
-
-nmap <Leader>map :w <bar> NeomakeSh panopy pdfpp %:r.md<CR>
-nmap <Leader>mah :w <bar> NeomakeSh panopy mjhtml %:r.md<CR>
-nmap <Leader>mat :w <bar> NeomakeSh panopy latexpp %:r.md<CR>
-nmap <Leader>marm :w <bar> NeomakeSh Rscript -e "knitr::knit('%:r.Rmd')"<CR>
-nmap <Leader>marh :w <bar> NeomakeSh Rscript -e "rmarkdown::render('%:r.Rmd', output_format='html_document')"<CR>
+nmap <Leader>mp :w <bar> NeomakeSh panopy pdfpp %:r.md<CR>
+nmap <Leader>mh :w <bar> NeomakeSh panopy mjhtml %:r.md<CR>
+nmap <Leader>mt :w <bar> NeomakeSh panopy latexpp %:r.md<CR>
+nmap <Leader>mrm :w <bar> NeomakeSh Rscript -e "knitr::knit('%:r.Rmd')"<CR>
+nmap <Leader>mrh :w <bar> NeomakeSh Rscript -e "rmarkdown::render('%:r.Rmd', output_format='html_document')"<CR>
 
 " critic markdown word count
 autocmd! Filetype markdown,pandoc,rmd nmap <buffer> <Leader>wc :echom system('TEST=$(mktemp); criticmarkuphs ' . expand('%') . ' $TEST; wc -w $TEST')<CR>
@@ -439,24 +401,33 @@ function! s:lightline_update()
     endtry
 endfunction
 
+function! ThemeLight()
+    set background=light
+    colorscheme autumnleaf
+    let g:lightline.colorscheme = 'PaperColor'
+    call s:lightline_update()
+endfunction
 
-command! Light set background=light |
-    \ colorscheme autumnleaf |
-    \ let g:lightline.colorscheme = 'PaperColor' |
-    \ let g:toggle_theme = 'light' |
-    \ call s:lightline_update()
-command! Dark set background=dark |
-    \ colorscheme badwolf |
-    \ let g:lightline.colorscheme = 'landscape' |
-    \ let g:toggle_theme = 'dark' |
-    \ call s:lightline_update()
+function! ThemeDark()
+    set background=dark
+    colorscheme badwolf
+    let g:lightline.colorscheme = 'landscape'
+    call s:lightline_update()
+endfunction
 
-let iterm_profile=$ITERM_PROFILE
-"if iterm_profile=="Light"
-"    :Light
-"else
-"    :Dark
-"endif
+command! Light call ThemeLight()
+command! Dark call ThemeDark()
+
+"command! Light set background=light |
+"    \ colorscheme autumnleaf |
+"    \ let g:lightline.colorscheme = 'PaperColor' |
+"    \ let g:toggle_theme = 'light' |
+"    \ call s:lightline_update()
+"command! Dark set background=dark |
+"    \ colorscheme badwolf |
+"    \ let g:lightline.colorscheme = 'landscape' |
+"    \ let g:toggle_theme = 'dark' |
+"    \ call s:lightline_update()
 
 if !exists('g:toggle_theme')
     if filereadable(expand('~/.theme'))
@@ -547,6 +518,20 @@ augroup neomake_hooks
 augroup END
 
 " toggles
+let g:toggles = {}
+function! Toggle(toggle_var, off_val, f_off, f_on)
+    if !has_key(g:toggles, a:toggle_var)
+        let g:toggles[a:toggle_var] = a:off_val
+    endif
+    if g:toggles[a:toggle_var] ==? a:off_val
+        call call(a:f_off, [])
+        let g:toggles[a:toggle_var] = "!".a:off_val
+    else
+        call call(a:f_on, [])
+        let g:toggles[a:toggle_var] = a:off_val
+    endif
+endfunction
+
 function! ToggleProse()
     if !exists('g:toggle_prose')
         let g:toggle_prose = 'code'
@@ -560,18 +545,20 @@ endfunction
 command! ToggleProse call ToggleProse()
 nnoremap <leader>top :silent! ToggleProse<CR>
 
-function! ToggleTheme()
-    if !exists('g:toggle_theme')
-        let g:toggle_theme = 'dark'
-    endif
-    if g:toggle_theme == 'dark'
-        :Light
-    else
-        :Dark
-    endif
-endfunction
-command! ToggleTheme call ToggleTheme()
-nnoremap <leader>tot :silent! ToggleTheme<CR>
+"function! ToggleTheme()
+"    if !exists('g:toggle_theme')
+"        let g:toggle_theme = 'dark'
+"    endif
+"    if g:toggle_theme == 'dark'
+"        :Light
+"    else
+"        :Dark
+"    endif
+"endfunction
+"command! ToggleTheme call ToggleTheme()
+"nnoremap <leader>tot :silent! ToggleTheme<CR>
+
+nnoremap <leader>tot :call Toggle("theme", "dark", function("ThemeLight"), function("ThemeDark"))<CR>
 
 function! ToggleWheel()
     if !exists('g:toggle_wheel')
@@ -592,6 +579,8 @@ function! ToggleWheel()
     endif
 endfunction
 nnoremap <leader>tow :call ToggleWheel()<CR>
+
+nnoremap <leader>ton :NERDTreeToggle<CR>
 
 
 " r devtools
