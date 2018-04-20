@@ -48,6 +48,7 @@ Plug 'jpalardy/vim-slime'
 Plug 'Shougo/vimproc.vim'
 Plug 'Shougo/unite.vim'
 "Plug 'ZoomWin'
+Plug 'troydm/zoomwintab.vim'
 Plug 'tomtom/tlib_vim'
 Plug 'marcweber/vim-addon-mw-utils'
 Plug 'garbas/vim-snipmate'
@@ -182,11 +183,8 @@ set nofoldenable
 let g:deoplete#enable_at_startup = 1
 
 " VIM R plugin shit
-if $TMUX != "" 
-    let R_in_buffer = 0
-    let R_applescript = 0
-    let R_tmux_split = 1
-endif
+let R_source = expand('~/.vim/plugged/Nvim-R/R/tmux_split.vim')
+let R_notmuxconf = 1
 let R_nvimpager = "tab"
 let r_syntax_folding = 1
 " r plugin hijacking my buffer switch key
@@ -545,40 +543,22 @@ endfunction
 command! ToggleProse call ToggleProse()
 nnoremap <leader>top :silent! ToggleProse<CR>
 
-"function! ToggleTheme()
-"    if !exists('g:toggle_theme')
-"        let g:toggle_theme = 'dark'
-"    endif
-"    if g:toggle_theme == 'dark'
-"        :Light
-"    else
-"        :Dark
-"    endif
-"endfunction
-"command! ToggleTheme call ToggleTheme()
-"nnoremap <leader>tot :silent! ToggleTheme<CR>
-
 nnoremap <leader>tot :call Toggle("theme", "dark", function("ThemeLight"), function("ThemeDark"))<CR>
 
-function! ToggleWheel()
-    if !exists('g:toggle_wheel')
-        let g:toggle_wheel = 'normal'
-    endif
-    if g:toggle_wheel == 'normal'
-        nnoremap <C-j> j
-        nnoremap <C-k> k
-        nmap j <Plug>(WheelDown)
-        nmap k <Plug>(WheelUp)
-        let g:toggle_wheel = 'wheel'
-    else
-        nunmap j
-        nunmap k
-        nmap <C-j> <Plug>(WheelDown)
-        nmap <C-k> <Plug>(WheelUp)
-        let g:toggle_wheel = 'normal'
-    endif
+function! WheelMode()
+    nnoremap <buffer> <C-j> j
+    nnoremap <buffer> <C-k> k
+    nmap <buffer> j <Plug>(WheelDown)
+    nmap <buffer> k <Plug>(WheelUp)
 endfunction
-nnoremap <leader>tow :call ToggleWheel()<CR>
+function! NoWheelMode()
+    nunmap <buffer> j
+    nunmap <buffer> k
+    nmap <buffer> <C-j> <Plug>(WheelDown)
+    nmap <buffer> <C-k> <Plug>(WheelUp)
+endfunction
+
+nnoremap <leader>tow :call Toggle("wheel", "nowheel", function("WheelMode"), function("NoWheelMode"))<CR>
 
 nnoremap <leader>ton :NERDTreeToggle<CR>
 
