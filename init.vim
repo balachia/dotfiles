@@ -193,7 +193,7 @@ nmap <LocalLeader>cr <Plug>RRightComment
 
 " ============================================================
 " keybinds
-nmap <Leader>gs :Gstatus<cr>
+"nmap <Leader>gs :Gstatus<cr>
 "map <F8> :NERDTreeFocus<CR>
 
 " comfortable scroll
@@ -243,6 +243,9 @@ augroup textobj_sentence
   autocmd FileType markdown,pandoc call textobj#sentence#init()
   autocmd FileType textile call textobj#sentence#init()
 augroup END
+
+" Gina
+nnoremap <Leader>gs :Gina status<cr>
 
 " lightline theme
 let g:lightline = {
