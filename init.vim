@@ -430,7 +430,7 @@ command! Dark call ThemeDark()
 if !exists('g:toggle_theme')
     if filereadable(expand('~/.theme'))
         let user_theme=system('cat ~/.theme')
-        if user_theme=='light'
+        if user_theme=~'^light.\?$'
             :Light
         else
             :Dark
