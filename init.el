@@ -47,6 +47,9 @@
 (require 'evil-surround)
 (global-evil-surround-mode 1)
 
+;; speedbar
+(speedbar 1)
+
 ;; helm
 (require 'helm)
 (require 'helm-config)
@@ -80,6 +83,9 @@
 (define-key evil-normal-state-map ",d" 'ess-eval-line-and-step)
 (define-key evil-normal-state-map ",pa" 'ess-eval-paragraph-and-step)
 (define-key evil-normal-state-map ",aa" 'ess-eval-buffer)
+
+;; TODO: backup and autosave behavior
+
 
 ;; themes
 (defun theme-light () (interactive)
