@@ -36,7 +36,8 @@ Plug 'airblade/vim-gitgutter'
 Plug 'scrooloose/nerdcommenter'
 
 Plug 'scrooloose/nerdtree'
-Plug 'tpope/vim-fugitive'
+"Plug 'tpope/vim-fugitive'
+Plug 'lambdalisue/gina.vim'
 Plug 'tpope/vim-unimpaired'
 "Plug 'sjl/gundo.vim'
 Plug 'junegunn/goyo.vim'
@@ -248,22 +249,25 @@ let g:lightline = {
             \ 'colorscheme': 'landscape',
             \ 'active': {
             \   'left': [ [ 'mode', 'paste' ],
-            \             [ 'fugitive', 'readonly', 'filename', 'prose', 'modified', 'neomake' ] ],
+            \             [ 'gina', 'readonly', 'filename', 'prose', 'modified', 'neomake' ] ],
             \   'right': [ [ 'lineinfo' ],
             \              [ 'percent' ],
             \              [ 'fileformat', 'fileencoding', 'filetype' ] ]
             \ },
             \ 'component': {
             \   'prose': '%{exists("toggle_prose")?(toggle_prose=="prose"?"PR":"CD"):""}',
-            \   'fugitive': '%{exists("*fugitive#head")?fugitive#head():""}',
+            \   'gina': '%{exists("*gina#component#repo#branch")?gina#component#repo#branch():""}',
             \   'neomake': '%{!empty(neomake#GetJobs()) ? len(neomake#GetJobs()) . " NM" : ""}'
             \ },
             \ 'component_visible_condition': {
             \   'prose': '(exists("toggle_prose"))',
-            \   'fugitive': '(exists("*fugitive#head") && ""!=fugitive#head())',
+            \   'gina': '(exists("*gina#component#repo#branch") && ""!=gina#component#repo#branch())',
             \   'neomake': '!(empty(neomake#GetJobs()))'
             \ }
             \ }
+
+" force gina component to load
+call gina#component#repo#branch()
 
 function! ClistLength()
     "echom 'start ' . reltimestr(reltime())
