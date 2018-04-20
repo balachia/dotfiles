@@ -16,7 +16,7 @@ fi
 export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:$PATH
 
 # color theming
-[ -f ~/.theme ] && theme $(cat .theme)
+[ -f $HOME/.theme ] && theme "$(cat $HOME/.theme)"
 
 # aliases
 alias l="ls -alh"
