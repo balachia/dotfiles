@@ -246,6 +246,9 @@ augroup END
 
 " Gina
 nnoremap <Leader>gs :Gina status<cr>
+nnoremap <Leader>gts :Gina status<cr>
+nnoremap <Leader>gtb :Gina branch<cr>
+nnoremap <Leader>gtc :Gina commit<cr>
 
 " lightline theme
 let g:lightline = {
