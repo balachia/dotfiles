@@ -40,9 +40,12 @@ if(interactive()) {
                         negnum=1, zero=2, number=2,
                         false=1, true=2, infinite=6,
                         date=3, string=4, const=5,
-                        stderr=c(NA,4,15),
-                        warn=c(1,5,15),
-                        error=c(1,1,15),
+                        #stderr=c(NA,4,15),
+                        #warn=c(1,5,15),
+                        #error=c(1,1,15),
+                        stderr='\033[7;34m',
+                        warn='\033[1;7;35m',
+                        error='\033[1;7;31m',
                         verbose=verbose)
     }
 
