@@ -70,7 +70,8 @@ Plug 'vim-pandoc/vim-pandoc-syntax'
 Plug 'balachia/vim-criticmarkup'
 "Plug 'termoshtt/unite-bibtex'
 "Plug 'balachia/unite-bibtex'
-Plug 'msprev/unite-bibtex'
+"Plug 'msprev/unite-bibtex'
+Plug 'twsh/unite-bibtex'
 Plug 'mattn/emmet-vim'
 Plug 'chrisbra/Colorizer'
 Plug 'lervag/vimtex'
@@ -195,6 +196,11 @@ nmap <LocalLeader>cr <Plug>RRightComment
 " keybinds
 "nmap <Leader>gs :Gstatus<cr>
 "map <F8> :NERDTreeFocus<CR>
+
+" providers
+"let g:python_host_prog = '/usr/local/miniconda3/bin/python'
+let g:loaded_python_provider = 1
+let g:python3_host_prog = '/usr/local/miniconda3/bin/python3'
 
 " comfortable scroll
 noremap <silent> <ScrollWheelDown> :call comfortable_motion#flick(30)<CR>
