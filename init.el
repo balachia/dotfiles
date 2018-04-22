@@ -48,7 +48,7 @@
 (global-evil-surround-mode 1)
 
 ;; speedbar
-(speedbar 1)
+;(speedbar 1)
 
 ;; helm
 (require 'helm)
@@ -84,8 +84,19 @@
 (define-key evil-normal-state-map ",pa" 'ess-eval-paragraph-and-step)
 (define-key evil-normal-state-map ",aa" 'ess-eval-buffer)
 
-;; TODO: backup and autosave behavior
+;; centralized backups
+(setq
+  backup-by-copying t      ; don't clobber symlinks
+  backup-directory-alist
+    '(("." . "~/.local/share/emacs/backup/"))    ; don't litter my fs tree
+  delete-old-versions t
+  kept-new-versions 6
+  kept-old-versions 2
+  version-control t)       ; use versioned backups
 
+;; centralized autosaves
+(setq auto-save-file-name-transforms
+  `((".*" "~/.local/share/emacs/saves/" t)))
 
 ;; themes
 (defun theme-light () (interactive)
