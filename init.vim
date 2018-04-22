@@ -420,6 +420,7 @@ function! ThemeLight()
     colorscheme autumnleaf
     let g:lightline.colorscheme = 'PaperColor'
     call s:lightline_update()
+    let g:toggles['theme'] = 'light'
 endfunction
 
 function! ThemeDark()
@@ -427,6 +428,7 @@ function! ThemeDark()
     colorscheme badwolf
     let g:lightline.colorscheme = 'landscape'
     call s:lightline_update()
+    let g:toggles['theme'] = 'dark'
 endfunction
 
 command! Light call ThemeLight()
@@ -443,20 +445,20 @@ command! Dark call ThemeDark()
 "    \ let g:toggle_theme = 'dark' |
 "    \ call s:lightline_update()
 
-if !exists('g:toggle_theme')
-    if filereadable(expand('~/.theme'))
-        let user_theme=system('cat ~/.theme')
-        if user_theme=~'^light.\?$'
-            :Light
-        else
-            :Dark
-        endif
-    elseif strftime("%H") >= 8 && strftime("%H") < 20
-        :Light
-    else
-        :Dark
-    endif
-endif
+"if !exists('g:toggle_theme')
+"    if filereadable(expand('~/.theme'))
+"        let user_theme=system('cat ~/.theme')
+"        if user_theme=~'^light.\?$'
+"            :Light
+"        else
+"            :Dark
+"        endif
+"    elseif strftime("%H") >= 8 && strftime("%H") < 20
+"        :Light
+"    else
+"        :Dark
+"    endif
+"endif
 
 " fix broken markdown extension
 " autocmd BufNewFile,BufRead *.md set filetype=markdown
@@ -577,6 +579,22 @@ endfunction
 nnoremap <leader>tow :call Toggle("wheel", "nowheel", function("WheelMode"), function("NoWheelMode"))<CR>
 
 nnoremap <leader>ton :NERDTreeToggle<CR>
+
+" default colorscheme
+if !has_key(g:toggles, 'theme')
+    if filereadable(expand('~/.theme'))
+        let user_theme=system('cat ~/.theme')
+        if user_theme=~'^light.\?$'
+            :Light
+        else
+            :Dark
+        endif
+    elseif strftime("%H") >= 8 && strftime("%H") < 20
+        :Light
+    else
+        :Dark
+    endif
+endif
 
 
 " r devtools
