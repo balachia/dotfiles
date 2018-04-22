@@ -1,0 +1,4 @@
+set -g status-style bg=colour234,fg=colour253
+set -g window-status-style bg=colour240
+set -g window-status-current-style bg=colour245,bold
+
