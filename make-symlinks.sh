@@ -1,5 +1,5 @@
-mkdir -p ~/.config/nvim
-mkdir -p ~/.config/kitty
+mkdir -p ~/.pandoc/
+mkdir -p ~/.config/{nvim,kitty}
 mkdir -p ~/.emacs.d
 mkdir -p ~/.local/{bin,src,R\/site-library}
 
