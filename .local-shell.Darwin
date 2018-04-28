@@ -1,0 +1,23 @@
+
+# random applications that should have a CLI:
+alias matlab="/Applications/MATLAB_R2013a.app/bin/matlab -nodesktop"
+
+# homebrew setting
+export HOMEBREW_GITHUB_API_TOKEN=4543fcfa4ccccfaeba9dd61cd76f54f3919b375c
+
+# add mactex to path
+export PATH=/Library/Tex/texbin:$PATH
+
+# add cabal to path
+export PATH=~/Library/Haskell/bin:~/.cabal/bin:$PATH
+#export PATH=~/Library/Haskell/bin:$PATH
+
+# add conda to path
+export PATH=/usr/local/miniconda3/bin:$PATH
+
+# java shit
+export JAVA_HOME=$(/usr/libexec/java_home)
+
+# cmus tmux integration
+alias cmus='tmux new-session -A -D -s cmus reattach-to-user-namespace -l cmus'
+

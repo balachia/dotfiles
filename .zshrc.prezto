@@ -15,6 +15,12 @@ fi
 # mess with path
 export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:$PATH
 
+# source local paths
+SYSNAME=$(uname)
+if [[ -s "${HOME}/.dotfiles/.local-shell.${SYSNAME}" ]]; then
+  source "${HOME}/.dotfiles/.local-shell.${SYSNAME}"
+fi
+
 # color theming
 [ -f $HOME/.theme ] && theme "$(cat $HOME/.theme)"
 
@@ -24,16 +30,16 @@ alias nv=nvim
 alias vimcs="vim --servername VIM"
 
 # random applications that should have a CLI:
-alias matlab="/Applications/MATLAB_R2013a.app/bin/matlab -nodesktop"
+#alias matlab="/Applications/MATLAB_R2013a.app/bin/matlab -nodesktop"
 
 # homebrew setting
-export HOMEBREW_GITHUB_API_TOKEN=4543fcfa4ccccfaeba9dd61cd76f54f3919b375c
+#export HOMEBREW_GITHUB_API_TOKEN=4543fcfa4ccccfaeba9dd61cd76f54f3919b375c
 
 # add mactex to path
-export PATH=/Library/Tex/texbin:$PATH
+#export PATH=/Library/Tex/texbin:$PATH
 
 # add cabal to path
-export PATH=~/Library/Haskell/bin:~/.cabal/bin:$PATH
+#export PATH=~/Library/Haskell/bin:~/.cabal/bin:$PATH
 #export PATH=~/Library/Haskell/bin:$PATH
 
 # add go to path
@@ -41,10 +47,10 @@ export GOPATH=${HOME}/.go
 export PATH=~/.go/bin:$PATH
 
 # add conda to path
-export PATH=/usr/local/miniconda3/bin:$PATH
+#export PATH=/usr/local/miniconda3/bin:$PATH
 
 # java shit
-export JAVA_HOME=$(/usr/libexec/java_home)
+#export JAVA_HOME=$(/usr/libexec/java_home)
 
 # useful haskell stuff
 hoog() {
@@ -102,7 +108,7 @@ wd() {
 }
 
 # cmus tmux integration
-alias cmus='tmux new-session -A -D -s cmus reattach-to-user-namespace -l cmus'
+#alias cmus='tmux new-session -A -D -s cmus reattach-to-user-namespace -l cmus'
 
 # make runnable
 nvx() {

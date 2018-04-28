@@ -1,0 +1,16 @@
+
+# add mactex to path
+#export PATH=/Library/Tex/texbin:$PATH
+
+# add cabal to path
+#export PATH=~/Library/Haskell/bin:~/.cabal/bin:$PATH
+
+# add conda to path
+#export PATH=/usr/local/miniconda3/bin:$PATH
+
+# java shit
+#export JAVA_HOME=$(/usr/libexec/java_home)
+
+# cmus tmux integration
+alias cmus='tmux new-session -A -D -s cmus cmus'
+
