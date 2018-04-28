@@ -10,6 +10,11 @@
 ;; rofi
 (define-key *root-map* (kbd "d") "exec rofi -show 'run'")
 
+;; raise browser by default
+(defcommand rr-firefox () ()
+    (run-or-raise "firefox" '(:class "Firefox")))
+(define-key *root-map* (kbd "b") "rr-firefox")
+
 ;; (define-key *root-map* (kbd "d") "exec firefox")
 (define-key *root-map* (kbd "c") "exec kitty")
 (define-key *root-map* (kbd "C-c") "exec kitty")
@@ -22,6 +27,12 @@
 (define-key *root-map* (kbd "j") "move-focus down")
 (define-key *root-map* (kbd "k") "move-focus up")
 (define-key *root-map* (kbd "C-k") "move-focus up")
+
+;; move windows around too
+(define-key *root-map* (kbd "M-l") "move-window right")
+(define-key *root-map* (kbd "M-h") "move-window left")
+(define-key *root-map* (kbd "M-j") "move-window down")
+(define-key *root-map* (kbd "M-k") "move-window up")
 
 (define-key *root-map* (kbd "C-t") "meta C-t")
 

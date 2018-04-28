@@ -13,8 +13,8 @@
 ;; end qoute
 
 ;; Remove window borders:
-;(setf *normal-window-border* 0)
-;(setf *window-border* 0)
+(setf *normal-window-border* 10)
+(setf *window-border* 10)
 ;(setf *window-border-style* :thin)
 
 (setf *message-window-gravity* :center
