@@ -3,7 +3,7 @@
 alias matlab="/Applications/MATLAB_R2013a.app/bin/matlab -nodesktop"
 
 # homebrew setting
-export HOMEBREW_GITHUB_API_TOKEN=4543fcfa4ccccfaeba9dd61cd76f54f3919b375c
+export HOMEBREW_GITHUB_API_TOKEN=$(cat $HOME/.credentials/github_homebrew)
 
 # add mactex to path
 export PATH=/Library/Tex/texbin:$PATH
