@@ -31,7 +31,7 @@ Plug 'tpope/vim-repeat'
 
 " programming
 Plug 'majutsushi/tagbar'
-Plug 'ludovicchabant/vim-gutentags'
+"Plug 'ludovicchabant/vim-gutentags'
 Plug 'airblade/vim-gitgutter'
 Plug 'scrooloose/nerdcommenter'
 
@@ -56,7 +56,7 @@ Plug 'garbas/vim-snipmate'
 Plug 'kshenoy/vim-signature'
 Plug 'mileszs/ack.vim'
 Plug 'neomake/neomake'
-Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
+"Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
 
 "R
 Plug 'jalvesaq/Nvim-R'
@@ -200,7 +200,7 @@ nmap <LocalLeader>cr <Plug>RRightComment
 " providers
 "let g:python_host_prog = '/usr/local/miniconda3/bin/python'
 let g:loaded_python_provider = 1
-let g:python3_host_prog = '/usr/local/miniconda3/bin/python3'
+"let g:python3_host_prog = '/usr/local/miniconda3/bin/python3'
 
 " comfortable scroll
 noremap <silent> <ScrollWheelDown> :call comfortable_motion#flick(30)<CR>
