@@ -41,7 +41,15 @@
 (define-key *toggle-map* (kbd "g") "toggle-gaps")
 (define-key *toggle-map* (kbd "m") "mode-line")
 
+;; groups
+(define-key *groups-map* (kbd "C-s") "gnew-float steam")
+
 ; rebind kill/delete
 (define-key *root-map* (kbd "K") "delete")
 (define-key *root-map* (kbd "C-K") "kill")
+
+;; audio
+(define-key *top-map* (kbd "XF86AudioLowerVolume") "amixer-Master-5-")
+(define-key *top-map* (kbd "XF86AudioRaiseVolume") "amixer-Master-5+")
+(define-key *top-map* (kbd "XF86AudioMute") "amixer-Master-toggle")
 

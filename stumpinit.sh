@@ -14,8 +14,8 @@ emacs --daemon
 # /bin/sh "$HOME/.config/stumpwm/lemonbar.sh" | lemonbar -dp -f "Inconsolata" &
 # /bin/sh "$HOME/.config/stumpwm/lemonbar.sh" | lemonbar -dp -f "Inconsolata" &
 
-/bin/sh "$HOME/.config/stumpwm/lemoneval.sh" &
-# polybar test &
+#/bin/sh "$HOME/.config/stumpwm/lemoneval.sh" &
+polybar screen --reload &
 
 # set up wallpaper
 feh --bg-fill ~/pictures/bg/bg.png
