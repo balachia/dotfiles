@@ -89,10 +89,10 @@ latexpp:
 latexnb:
     __inherits__: latexpp
     natbib: 
-    filter:
-        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-internalref
-        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-dropinenv
-        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-passthrough
+#    filter:
+#        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-internalref
+#        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-dropinenv
+#        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-passthrough
 
 
 pdfpp:
@@ -121,6 +121,7 @@ pdfnb:
     __inherits__: latexnb
     __post__:
         - python ~/Dropbox/Code/misc/pandoc-filters/pandoc-postprocess.py %.tex
+#        - latexmk -interaction=batchmode %.tex
         - pdflatex -interaction=batchmode %.tex
         - bibtex %
         - pdflatex -interaction=batchmode %.tex

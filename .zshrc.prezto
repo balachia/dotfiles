@@ -29,6 +29,10 @@ alias l="ls -alh"
 alias nv=nvim
 alias vimcs="vim --servername VIM"
 
+# gpg
+GPG_TTY=$(tty)
+export GPG_TTY
+
 # random applications that should have a CLI:
 #alias matlab="/Applications/MATLAB_R2013a.app/bin/matlab -nodesktop"
 

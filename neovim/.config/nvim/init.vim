@@ -35,6 +35,7 @@ Plug 'majutsushi/tagbar'
 Plug 'airblade/vim-gitgutter'
 Plug 'scrooloose/nerdcommenter'
 
+Plug 'vim-scripts/gnupg.vim'
 Plug 'scrooloose/nerdtree'
 "Plug 'tpope/vim-fugitive'
 Plug 'lambdalisue/gina.vim'
@@ -223,11 +224,15 @@ nmap <Leader>vt :e %:r.tex<CR>
 nmap <Leader>vh :!open %:r.html<CR>
 
 " markdown makers
-nmap <Leader>mp :w <bar> NeomakeSh panopy pdfpp %:r.md<CR>
-nmap <Leader>mh :w <bar> NeomakeSh panopy mjhtml %:r.md<CR>
-nmap <Leader>mt :w <bar> NeomakeSh panopy latexpp %:r.md<CR>
-nmap <Leader>mrm :w <bar> NeomakeSh Rscript -e "knitr::knit('%:r.Rmd')"<CR>
-nmap <Leader>mrh :w <bar> NeomakeSh Rscript -e "rmarkdown::render('%:r.Rmd', output_format='html_document')"<CR>
+nnoremap <Leader>mp :w <bar> NeomakeSh panopy pdfpp %:r.md<CR>
+nnoremap <Leader>mh :w <bar> NeomakeSh panopy mjhtml %:r.md<CR>
+nnoremap <Leader>mt :w <bar> NeomakeSh panopy latexpp %:r.md<CR>
+nnoremap <Leader>mrm :w <bar> NeomakeSh Rscript -e "knitr::knit('%:r.Rmd')"<CR>
+nnoremap <Leader>mrh :w <bar> NeomakeSh Rscript -e "rmarkdown::render('%:r.Rmd', output_format='html_document')"<CR>
+
+" asynchronous makers
+"nnoremap <Leader>map :w <bar> NeomakeSh echo %:r.md | entr panopy pdfpp %:r.md<CR>
+
 
 " critic markdown word count
 autocmd! Filetype markdown,pandoc,rmd nmap <buffer> <Leader>wc :echom system('TEST=$(mktemp); criticmarkuphs ' . expand('%') . ' $TEST; wc -w $TEST')<CR>
@@ -578,6 +583,17 @@ endfunction
 
 nnoremap <leader>tow :call Toggle("wheel", "nowheel", function("WheelMode"), function("NoWheelMode"))<CR>
 
+function! LinebreakModeOn()
+    nnoremap <buffer> j gj
+    nnoremap <buffer> k gk
+endfunction
+function! LinebreakModeOff()
+    nunmap <buffer> j
+    nunmap <buffer> k
+endfunction
+
+nnoremap <leader>tol :call Toggle("linebreak", "off", function("LinebreakModeOn"), function("LinebreakModeOff"))<CR>
+    
 nnoremap <leader>ton :NERDTreeToggle<CR>
 
 " default colorscheme
@@ -595,6 +611,20 @@ if !has_key(g:toggles, 'theme')
         :Dark
     endif
 endif
+
+" theme watcher
+" TODO: check for existence of theme and entr
+function! ThemeWatch()
+    :NeomakeSh echo '~/.theme' | entr neovim-theme.py ${NVIM_LISTEN_ADDRESS} /_
+endfunction
+
+function! ThemeWatch2()
+    call jobstart("echo '~/.theme' | entr neovim-theme.py ${NVIM_LISTEN_ADDRESS} /_")
+endfunction
+
+"if exists('v:servername')
+"    :NeomakeSh echo '~/.theme' | entr neovim-theme.py ${NVIM_LISTEN_ADDRESS} /_
+"endif
 
 
 " r devtools
