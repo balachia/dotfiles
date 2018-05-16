@@ -7,6 +7,7 @@
 
 # add conda to path
 #export PATH=/usr/local/miniconda3/bin:$PATH
+export PATH=/opt/anaconda/bin:$PATH
 
 # java shit
 #export JAVA_HOME=$(/usr/libexec/java_home)
