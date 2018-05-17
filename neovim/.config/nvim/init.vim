@@ -57,7 +57,8 @@ Plug 'garbas/vim-snipmate'
 Plug 'kshenoy/vim-signature'
 Plug 'mileszs/ack.vim'
 Plug 'neomake/neomake'
-"Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
+Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
+Plug 'zchee/deoplete-jedi'
 
 "R
 Plug 'jalvesaq/Nvim-R'
