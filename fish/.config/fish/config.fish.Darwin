@@ -1,0 +1,15 @@
+# homebrew setting
+set -x HOMEBREW_GITHUB_API_TOKEN (cat ~/.credentials/github_homebrew)
+
+# add mactex to path
+set PATH /Library/Tex/texbin $PATH
+
+# add cabal to path
+set PATH ~/Library/Haskell/bin ~/.cabal/bin $PATH
+
+# add conda to path
+set PATH /usr/local/miniconda3/bin $PATH
+
+# java shit
+set -x JAVA_HOME (/usr/libexec/java_home)
+

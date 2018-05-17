@@ -1,0 +1,2 @@
+# add conda to path
+set PATH /opt/anaconda/bin $PATH
