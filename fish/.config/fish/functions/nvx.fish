@@ -1,5 +1,5 @@
 function nvx
-    touch $args
-    chmod +x $args
-    nvim $args
+    touch $argv
+    chmod +x $argv
+    nvim $argv
 end
