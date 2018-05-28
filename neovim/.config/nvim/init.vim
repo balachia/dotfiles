@@ -390,7 +390,7 @@ command! Code silent! iunmap <buffer> .|
             "\     tw=74 fo=cqr1 showbreak=… nu|
 
 nnoremap Q gwip
-autocmd FileType markdown,pandoc,rmd :Prose
+"autocmd FileType markdown,pandoc,rmd :Prose
 
 " light/dark colorschemes
 "function! s:lightline_update()
