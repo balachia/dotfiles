@@ -167,6 +167,9 @@ set expandtab
 " use mouse everywhere
 set mouse=a
 
+" set shell because nobody likes fish :(
+set shell=/bin/sh
+
 " Map <C-L> (redraw screen) to also turn off search highlighting until the
 " next search
 nnoremap <C-L> :nohl<CR><C-L>
@@ -600,7 +603,7 @@ nnoremap <leader>ton :NERDTreeToggle<CR>
 " default colorscheme
 if !has_key(g:toggles, 'theme')
     if filereadable(expand('~/.theme'))
-        let user_theme=system('cat ~/.theme')
+        let user_theme=join(readfile(expand('~/.theme')), '\n')
         if user_theme=~'^light.\?$'
             :Light
         else
@@ -616,12 +619,10 @@ endif
 " theme watcher
 " TODO: check for existence of theme and entr
 function! ThemeWatch()
-    :NeomakeSh echo '~/.theme' | entr neovim-theme.py ${NVIM_LISTEN_ADDRESS} /_
+    let g:theme_watch_job = jobstart("echo " . expand('~/.theme') . " | entr neovim-theme.py '" . v:servername . "' /_")
 endfunction
 
-function! ThemeWatch2()
-    call jobstart("echo '~/.theme' | entr neovim-theme.py ${NVIM_LISTEN_ADDRESS} /_")
-endfunction
+call ThemeWatch()
 
 "if exists('v:servername')
 "    :NeomakeSh echo '~/.theme' | entr neovim-theme.py ${NVIM_LISTEN_ADDRESS} /_
