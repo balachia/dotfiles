@@ -1,2 +1,14 @@
 # add conda to path
 set PATH /opt/anaconda/bin $PATH
+
+# keychain
+if status --is-interactive
+    keychain --quiet --noask id_rsa
+end
+
+begin
+    set -l HOSTNAME (hostname)
+    if test -f ~/.keychain/$HOSTNAME-fish
+        source ~/.keychain/$HOSTNAME-fish
+    end
+end
