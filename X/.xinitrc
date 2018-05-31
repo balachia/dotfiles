@@ -40,4 +40,7 @@ xset r rate 200 50
 
 compton &
 
+# disable dummy plug
+xrandr --output HDMI-A-0 --off
+
 exec stumpwm
