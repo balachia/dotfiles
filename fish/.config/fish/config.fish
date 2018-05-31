@@ -1,5 +1,5 @@
 # set paths
-set PATH ~/bin ~/.local/bin /usr/local/bin $PATH
+set PATH ~/.local/bin /usr/local/bin $PATH
 
 # color theming
 if test -e ~/.theme
