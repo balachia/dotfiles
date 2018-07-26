@@ -37,7 +37,7 @@ Plug 'scrooloose/nerdcommenter'
 
 Plug 'vim-scripts/gnupg.vim'
 Plug 'scrooloose/nerdtree'
-"Plug 'tpope/vim-fugitive'
+Plug 'tpope/vim-fugitive'
 Plug 'lambdalisue/gina.vim'
 Plug 'tpope/vim-unimpaired'
 "Plug 'sjl/gundo.vim'
@@ -233,6 +233,7 @@ nnoremap <Leader>mh :w <bar> NeomakeSh panopy mjhtml %:r.md<CR>
 nnoremap <Leader>mt :w <bar> NeomakeSh panopy latexpp %:r.md<CR>
 nnoremap <Leader>mrm :w <bar> NeomakeSh Rscript -e "knitr::knit('%:r.Rmd')"<CR>
 nnoremap <Leader>mrh :w <bar> NeomakeSh Rscript -e "rmarkdown::render('%:r.Rmd', output_format='html_document')"<CR>
+nnoremap <Leader>mrp :w <bar> NeomakeSh Rscript -e "rmarkdown::render('%:r.Rmd', output_format='pdf_document')"<CR>
 
 " asynchronous makers
 "nnoremap <Leader>map :w <bar> NeomakeSh echo %:r.md | entr panopy pdfpp %:r.md<CR>
@@ -260,10 +261,13 @@ augroup textobj_sentence
 augroup END
 
 " Gina
-nnoremap <Leader>gs :Gina status<cr>
-nnoremap <Leader>gts :Gina status<cr>
-nnoremap <Leader>gtb :Gina branch<cr>
-nnoremap <Leader>gtc :Gina commit<cr>
+"nnoremap <Leader>gs :Gina status<cr>
+"nnoremap <Leader>gts :Gina status<cr>
+"nnoremap <Leader>gtb :Gina branch<cr>
+"nnoremap <Leader>gtc :Gina commit<cr>
+
+" Fugitive
+nnoremap <Leader>gs :Gstatus<cr>
 
 " lightline theme
 let g:lightline = {
