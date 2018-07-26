@@ -622,7 +622,7 @@ function! ThemeWatch()
     let g:theme_watch_job = jobstart("echo " . expand('~/.theme') . " | entr neovim-theme.py '" . v:servername . "' /_")
 endfunction
 
-call ThemeWatch()
+"call ThemeWatch()
 
 "if exists('v:servername')
 "    :NeomakeSh echo '~/.theme' | entr neovim-theme.py ${NVIM_LISTEN_ADDRESS} /_
