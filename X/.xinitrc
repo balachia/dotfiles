@@ -38,9 +38,10 @@ xcape -e 'Control_L=Escape'
 
 xset r rate 200 50
 
-compton &
+#compton &
 
 # disable dummy plug
 xrandr --output HDMI-A-0 --off
 
-exec stumpwm
+#exec stumpwm
+exec bspwm
