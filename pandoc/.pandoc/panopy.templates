@@ -1,7 +1,6 @@
 __default__:
     s:
-    S:
-    r: markdown+simple_tables+table_captions+yaml_metadata_block+tex_math_double_backslash+grid_tables
+    r: markdown+simple_tables+table_captions+yaml_metadata_block+tex_math_double_backslash+grid_tables+raw_tex+raw_html
     #bibliography: ~/Documents/library-clean.bib
     bibliography: ~/Documents/library.bib
     filter: pandoc-citeproc
@@ -54,7 +53,8 @@ pandoc-json:
 
 latex:
     o: '%.tex'
-    latex-engine: pdflatex
+    t: latex+smart
+    pdf-engine: pdflatex
     verbose: 
     filter:
         # - pandoc-citeproc
@@ -73,8 +73,7 @@ pdf:
 latexpp:
     __inherits__: latex
     o: '%.tex'
-    R:
-    latex-engine: pdflatex
+    pdf-engine: pdflatex
     default-image-extension: pdf
     #default-image-extension: eps
     __pre__:
@@ -83,22 +82,17 @@ latexpp:
         - gpp -T -n --include ~/.pandoc/tex.gpp -x %.cm.md -o %.gpp.md -DGPPTEX=1
     __in__:
         - '%.gpp.md'
-    __post__:
-        - python ~/Dropbox/Code/misc/pandoc-filters/pandoc-postprocess.py %.tex
+#    __post__:
+#        - python ~/Dropbox/Code/misc/pandoc-filters/pandoc-postprocess.py %.tex
 
 latexnb:
     __inherits__: latexpp
     natbib: 
-#    filter:
-#        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-internalref
-#        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-dropinenv
-#        - ~/Dropbox/Code/misc/pandoc-filters/pandoc-passthrough
-
 
 pdfpp:
     __inherits__: latexpp
     __post__:
-        - python ~/Dropbox/Code/misc/pandoc-filters/pandoc-postprocess.py %.tex
+        # - python ~/Dropbox/Code/misc/pandoc-filters/pandoc-postprocess.py %.tex
         - pdflatex -interaction=batchmode %.tex
         - pdflatex -interaction=batchmode %.tex
         - rm %.out %.aux %.log
@@ -135,16 +129,19 @@ pdfnb:
 # beamer
 
 beam:
-    latex-engine: lualatex
+    pdf-engine: lualatex
     template: local-beamer.tex
     o: '%.pdf'
     t: beamer
+    f: markdown-latex_macros+tex_math_double_backslash
+    __pre__:
+        - criticmarkuphs -i %.md -o %.cm.md
+    __in__:
+        - '%.cm.md'
 
 beamtex:
-    latex-engine: lualatex
-    template: local-beamer.tex
+    __inherits__: beam
     o: '%.tex'
-    t: beamer
 
 ############################################################
 # various html shit
