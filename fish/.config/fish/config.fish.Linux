@@ -1,5 +1,8 @@
 # add conda to path
-set PATH /opt/anaconda/bin $PATH
+set PATH /opt/miniconda3/bin $PATH 
+
+# add ruby to path
+set PATH (ruby -e 'print Gem.user_dir')/bin $PATH
 
 # keychain
 if status --is-interactive
