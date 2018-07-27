@@ -2,8 +2,10 @@
 set PATH ~/.local/bin /usr/local/bin $PATH
 
 # color theming
-if test -e ~/.theme
-    theme (cat ~/.theme)
+if status --is-interactive
+    if test -z "$SSH_CONNECTION"; and test -z "$SSH_TTY"; and test -e ~/.theme
+        theme (cat ~/.theme)
+    end
 end
 
 # source local paths
