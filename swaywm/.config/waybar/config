@@ -1,0 +1,39 @@
+{
+    "layer": "top",
+    "modules-left": ["sway/workspaces", "sway/mode"],
+    "modules-center": ["sway/window"],
+    "modules-right": ["network", "backlight", "custom/rot90", "battery", "clock"],
+    "sway/window": {
+        "max-length": 50
+    },
+    "battery": {
+        "format": "{capacity}% {icon}",
+        "format-icons": ["", "", "", "", ""]
+    },
+    "clock": {
+        "format-alt": "{:%a, %d. %b  %H:%M}"
+    },
+    "backlight": {
+        "device": "intel_backlight",
+        "format": "{percent}% {icon}",
+        "format-icons": ["", ""],
+        "on-click0": "light -G | perl -ne 'exit($_ == 100)' && light -A 20 || light -S 20",
+        "on-click": "light -S $(light -G | perl -ne '@a=(5,100,75,50,25,15,5,0);$i=1;while($_<$a[$i]-1){$i++};print($a[$i-1])')",
+        "on-click-right": "light -S $(light -G | perl -ne '@a=(100,75,50,25,15,5,0,100);$i=$#a-1;while($_>$a[$i]+1){$i--};print($a[$i+1])')",
+        "on-scroll-down": "light -U 0.25",
+        "on-scroll-up": "light -A 0.25"
+    },
+    "network": {
+        "device": "wlp1s0",
+        "format-wifi": "{essid} ({signalStrength}%) ",
+	"on-click-right": "networkmanager_dmenu",
+	"tooltip-format": "{ifname}",
+	"tooltip-format-wifi": "{essid}"
+    },
+    "custom/rot90": {
+    	"format": "",
+	"on-click": "swaymsg output eDP-1 transform 90 clockwise",
+	"on-click-right": "swaymsg output eDP-1 transform 90 anticlockwise",
+	"tooltip-format": "Rotate display"
+    }
+}
