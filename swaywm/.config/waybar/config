@@ -25,6 +25,7 @@
     },
     "network": {
         "device": "wlp1s0",
+        "format": "{ifname}",
         "format-wifi": "{essid} ({signalStrength}%) ",
 	"on-click-right": "networkmanager_dmenu",
 	"tooltip-format": "{ifname}",
