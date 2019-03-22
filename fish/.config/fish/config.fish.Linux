@@ -2,7 +2,9 @@
 set PATH /opt/miniconda3/bin $PATH 
 
 # add ruby to path
-set PATH (ruby -e 'print Gem.user_dir')/bin $PATH
+if type -q ruby
+    set PATH (ruby -e 'print Gem.user_dir')/bin $PATH
+end
 
 # keychain
 if status --is-interactive
