@@ -235,10 +235,6 @@ nnoremap <Leader>mrm :w <bar> NeomakeSh Rscript -e "knitr::knit('%:r.Rmd')"<CR>
 nnoremap <Leader>mrh :w <bar> NeomakeSh Rscript -e "rmarkdown::render('%:r.Rmd', output_format='html_document')"<CR>
 nnoremap <Leader>mrp :w <bar> NeomakeSh Rscript -e "rmarkdown::render('%:r.Rmd', output_format='pdf_document')"<CR>
 
-" asynchronous makers
-"nnoremap <Leader>map :w <bar> NeomakeSh echo %:r.md | entr panopy pdfpp %:r.md<CR>
-
-
 " critic markdown word count
 autocmd! Filetype markdown,pandoc,rmd nmap <buffer> <Leader>wc :echom system('TEST=$(mktemp); criticmarkuphs ' . expand('%') . ' $TEST; wc -w $TEST')<CR>
 autocmd! Filetype tex nmap <buffer> <Leader>wc :VimtexCountWords<cr>
@@ -259,12 +255,6 @@ augroup textobj_sentence
   autocmd FileType markdown,pandoc call textobj#sentence#init()
   autocmd FileType textile call textobj#sentence#init()
 augroup END
-
-" Gina
-"nnoremap <Leader>gs :Gina status<cr>
-"nnoremap <Leader>gts :Gina status<cr>
-"nnoremap <Leader>gtb :Gina branch<cr>
-"nnoremap <Leader>gtc :Gina commit<cr>
 
 " Fugitive
 nnoremap <Leader>gs :Gstatus<cr>
@@ -325,7 +315,6 @@ nmap <Leader>taf :call pandoc#formatting#ToggleAutoFormat()
 " let's try to disable pandoc folding
 "" HAHA I DID IT! FUCK FOLDS! THIS WAS THE SPEED ISSUE
 let g:pandoc#modules#disabled = ["folding"]
-
 
 
 " unite bibtex!
@@ -523,9 +512,6 @@ endfunction
 function! Multiple_cursors_after()
     :call deoplete#enable()
 endfunction
-
-" languagetool
-let g:languagetool_jar='/usr/local/Cellar/languagetool/2.8/libexec/languagetool-commandline.jar'
 
 " neomake
 "autocmd! BufWritePost * Neomake
