@@ -207,6 +207,16 @@ mode "resize" {
 bindsym $mod+r mode "resize"
 
 #
+# Immersion mode:
+# Send hotkeys (in particular Mod4) into whatever application we are interested in (in particular, virt-manager)
+#
+mode "immersion" {
+    # return to default mode
+    bindsym $mod+Shift+Escape mode "default"
+}
+bindsym $mod+Shift+i mode "immersion"
+
+#
 # Status Bar:
 #
 # Read `man 5 sway-bar` for more information about this section.
