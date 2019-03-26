@@ -1,129 +1,135 @@
 * {
-    border: none;
-    border-radius: 0;
-    font-family: Roboto, Helvetica, Arial, sans-serif;
-    font-size: 14px;
-    min-height: 0;
+  border: none;
+  border-radius: 0;
+  font-family: Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  min-height: 0;
 }
 
 window#waybar {
-    background: rgba(43, 48, 59, 0.5);
-    border-bottom: 3px solid rgba(100, 114, 125, 0.5);
-    color: #ffffff;
+  background: #000;
+  border-bottom: 3px solid transparent;
+  color: #ffffff;
 }
 
 /* https://github.com/Alexays/Waybar/wiki/FAQ#the-workspace-buttons-have-a-strange-hover-effect */
 #workspaces button {
-    padding: 0 5px;
-    background: transparent;
-    color: #ffffff;
-    border-bottom: 3px solid transparent;
+  padding: 0 5px;
+  background: transparent;
+  color: #ffffff;
+  border-bottom: 3px solid rgba(255, 255, 255, 0.66);
 }
 
 #workspaces button.focused {
-    background: #64727D;
-    border-bottom: 3px solid #ffffff;
+  background: rgba(255, 255, 255, 0.33);
+  border-bottom: 3px solid rgba(255, 255, 255, 0.66);
+}
+
+#clock, #battery, #cpu, #memory, #temperature, #backlight, #network, #pulseaudio, #custom-spotify, #custom-rot90, #tray, #mode, #idle_inhibitor {
+  color: #ffffff;
+  background-color: transparent;
+  padding: 0 8px;
+  margin: 0 4px;
+  border-bottom: 3px solid transparent;
+  border-top: 3px solid transparent;
 }
 
 #mode {
-    background: #64727D;
-    border-bottom: 3px solid #ffffff;
-}
-
-#clock, #battery, #cpu, #memory, #temperature, #backlight, #network, #pulseaudio, #custom-spotify, #tray, #mode, #idle_inhibitor {
-    padding: 0 10px;
-    margin: 0 5px;
+  background: rgba(255, 255, 255, 0.33);
+  border-bottom-color: rgba(255, 255, 255, 0.66);
 }
 
 #clock {
-    background-color: #64727D;
-}
-
-#battery {
-    background-color: #ffffff;
-    color: #000000;
+  border-bottom: 3px solid rgba(255, 255, 255, 0.66);
 }
 
 #battery.charging {
-    color: #ffffff;
-    background-color: #26A65B;
+  border-bottom: 3px dotted rgba(255, 255, 255, 0.66);
 }
 
-@keyframes blink {
-    to {
-        background-color: #ffffff;
-        color: #000000;
-    }
+#battery.warning:not(.charging) {
+  border-bottom: 3px solid #bb0000;
+}
+
+@keyframes battery-blink {
+  to {
+    background-color: #bb0000;
+  }
 }
 
 #battery.critical:not(.charging) {
-    background: #f53c3c;
-    color: #ffffff;
-    animation-name: blink;
-    animation-duration: 0.5s;
-    animation-timing-function: linear;
-    animation-iteration-count: infinite;
-    animation-direction: alternate;
+  animation-name: battery-blink;
+  animation-duration: 0.5s;
+  animation-timing-function: ease;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
 }
 
 #cpu {
-    background: #2ecc71;
-    color: #000000;
+  padding: 0;
+  border-bottom-color: #1b9e77;
 }
 
 #memory {
-    background: #9b59b6;
+  padding: 0;
+  border-bottom-color: #66a61e;
 }
 
 #backlight {
-    background: #90b1b1;
+  border-bottom-color: #a6761d;
 }
 
 #network {
-    background: #2980b9;
+  border-bottom-color: #7570b3;
 }
 
 #network.disconnected {
-    background: #f53c3c;
+  border-bottom-color: #e7298a;
 }
 
 #pulseaudio {
-    background: #f1c40f;
-    color: #000000;
+  background: #f1c40f;
+  color: #000000;
 }
 
 #pulseaudio.muted {
-    background: #90b1b1;
-    color: #2a5c45;
+  background: #90b1b1;
+  color: #2a5c45;
 }
 
 #custom-spotify {
-    background: #66cc99;
-    color: #2a5c45;
+  background: #66cc99;
+  color: #2a5c45;
 }
 
 #temperature {
-    background: #f0932b;
+  background: #f0932b;
 }
 
 #temperature.critical {
-    background: #eb4d4b;
+  background: #eb4d4b;
 }
 
 #tray {
-    background-color: #2980b9;
+  background-color: #2980b9;
 }
 
 #idle_inhibitor {
-    background-color: #2d3436;
+  background-color: rgba(255, 255, 255, 0.33);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.33);
+  border-bottom-color: rgba(255, 255, 255, 0.33);
 }
 
 #idle_inhibitor.activated {
-    background-color: #ecf0f1;
-    color: #2d3436;
+  color: #fff;
+  border-top-color: rgba(255, 255, 255, 0.33);
+  border-bottom-color: transparent;
+  border-bottom-width: 0px;
 }
 
 #custom-rot90 {
-    padding: 0 10px;
-    margin: 0 5px;
+  background-color: rgba(255, 255, 255, 0.33);
+  border-radius: 6px;
+  border-bottom: 3px solid rgba(255, 255, 255, 0.33);
 }

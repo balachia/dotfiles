@@ -2,11 +2,15 @@
     "layer": "top",
     "modules-left": ["sway/workspaces", "sway/mode"],
     "modules-center": ["sway/window"],
-    "modules-right": ["network", "backlight", "custom/rot90", "battery", "clock"],
+    "modules-right": ["cpu", "memory", "network", "backlight", "idle_inhibitor", "custom/rot90", "battery", "clock"],
     "sway/window": {
         "max-length": 50
     },
     "battery": {
+        "states": {
+            "critical": 10,
+            "warning" : 20
+        },
         "format": "{capacity}% {icon}",
         "format-icons": ["", "", "", "", ""]
     },
@@ -26,10 +30,27 @@
     "network": {
         "device": "wlp1s0",
         "format": "{ifname}",
-        "format-wifi": "{essid} ({signalStrength}%) ",
+        "format-disconnected": "",
+        "format-ethernet": "{ifname}",
+        "format-wifi": "",
 	"on-click-right": "networkmanager_dmenu",
 	"tooltip-format": "{ifname}",
-	"tooltip-format-wifi": "{essid}"
+	"tooltip-format-disconnected": "{ifname}",
+	"tooltip-format-ethernet": "{ifname}",
+	"tooltip-format-wifi": "{essid} ({signalStrength}%)"
+    },
+    "memory": {
+        "format": "MEM {}%"
+    },
+    "cpu": {
+        "format": "CPU {}%"
+    },
+    "idle_inhibitor": {
+        "format": "{icon}",
+        "format-icons": {
+            "activated": "",
+            "deactivated": ""
+        }
     },
     "custom/rot90": {
     	"format": "",
