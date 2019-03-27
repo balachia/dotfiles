@@ -217,6 +217,12 @@ mode "immersion" {
 bindsym $mod+Shift+i mode "immersion"
 
 #
+# Theming
+#
+bindsym $mod+Shift+semicolon exec "theme -all dark"
+bindsym $mod+Shift+apostrophe exec "theme -all light"
+
+#
 # Status Bar:
 #
 # Read `man 5 sway-bar` for more information about this section.
