@@ -1,0 +1,192 @@
+################################################################################
+# GMAIL 
+################################################################################
+
+# ACCOUNT INFORMATION
+IMAPAccount gmail
+    # Address to connect to
+    Host imap.gmail.com
+    User avashevko@gmail.com
+    PassCmd "gpg --for-your-eyes-only --no-tty -qd ~/.credentials/gmail.gpg"
+    SSLType IMAPS
+    CertificateFile /etc/ssl/certs/ca-certificates.crt
+
+# THEN WE SPECIFY THE LOCAL AND REMOTE STORAGE
+# - THE REMOTE STORAGE IS WHERE WE GET THE MAIL FROM (E.G., THE
+#   SPECIFICATION OF AN IMAP ACCOUNT)
+# - THE LOCAL STORAGE IS WHERE WE STORE THE EMAIL ON OUR COMPUTER
+
+# REMOTE STORAGE (USE THE IMAP ACCOUNT SPECIFIED ABOVE)
+IMAPStore gmail-remote
+    Account gmail
+
+# LOCAL STORAGE (CREATE DIRECTORIES with mkdir -p Maildir/gmail)
+MaildirStore gmail-local
+    Path ~/Mail/gmail/
+    Inbox ~/Mail/gmail/INBOX
+
+# CONNECTIONS SPECIFY LINKS BETWEEN REMOTE AND LOCAL FOLDERS
+#
+# CONNECTIONS ARE SPECIFIED USING PATTERNS, WHICH MATCH REMOTE MAIl
+# FOLDERS. SOME COMMONLY USED PATTERS INCLUDE:
+#
+# 1 "*" TO MATCH EVERYTHING
+# 2 "!DIR" TO EXCLUDE "DIR"
+# 3 "DIR" TO MATCH DIR
+
+Channel gmail-inbox
+    Master :gmail-remote:
+    Slave :gmail-local:
+    Patterns "INBOX"
+    Create Slave
+    Expunge Both
+    SyncState *
+
+Channel gmail-all
+    Master :gmail-remote:"[Gmail]/All Mail"
+    Slave :gmail-local:archive
+    Create Slave
+    Expunge Both
+    SyncState *
+
+Channel gmail-trash
+    Master :gmail-remote:"[Gmail]/Trash"
+    Slave :gmail-local:trash
+    Create Slave
+    Expunge Both
+    SyncState *
+
+Channel gmail-spam
+    Master :gmail-remote:"[Gmail]/Spam"
+    Slave :gmail-local:spam
+    Create Slave
+    Expunge Both
+    SyncState *
+
+Channel gmail-sent
+    Master :gmail-remote:"[Gmail]/Sent Mail"
+    Slave :gmail-local:sent
+    Create Slave
+    Expunge Both
+    SyncState *
+
+Channel gmail-drafts
+    Master :gmail-remote:"[Gmail]/Drafts"
+    Slave :gmail-local:drafts
+    Create Slave
+    Expunge Both
+    SyncState *
+
+Channel gmail-starred
+    Master :gmail-remote:"[Gmail]/Starred"
+    Slave :gmail-local:starred
+    Create Slave
+    Expunge Both
+    SyncState *
+
+# GROUPS PUT TOGETHER CHANNELS, SO THAT WE CAN INVOKE
+# MBSYNC ON A GROUP TO SYNC ALL CHANNELS
+#
+# FOR INSTANCE: "mbsync gmail" GETS MAIL FROM
+# "gmail-inbox", "gmail-sent", and "gmail-trash"
+#
+Group gmail
+    Channel gmail-inbox
+    Channel gmail-sent
+    Channel gmail-drafts
+    Channel gmail-trash
+    Channel gmail-spam
+    Channel gmail-all
+    Channel gmail-starred
+
+################################################################################
+# ESSEC Gmail
+################################################################################
+
+# ACCOUNT INFORMATION
+IMAPAccount essec
+    # Address to connect to
+    Host imap.gmail.com
+    User b00755043@essec.edu
+    PassCmd "gpg --for-your-eyes-only --no-tty -qd ~/.credentials/essec.gpg"
+    #AuthMechs XOAUTH2
+    SSLType IMAPS
+    CertificateFile /etc/ssl/certs/ca-certificates.crt
+
+# THEN WE SPECIFY THE LOCAL AND REMOTE STORAGE
+# - THE REMOTE STORAGE IS WHERE WE GET THE MAIL FROM (E.G., THE
+#   SPECIFICATION OF AN IMAP ACCOUNT)
+# - THE LOCAL STORAGE IS WHERE WE STORE THE EMAIL ON OUR COMPUTER
+
+IMAPStore essec-remote
+    Account essec
+
+MaildirStore essec-local
+    Path ~/Mail/essec/
+    Inbox ~/Mail/essec/INBOX
+
+Channel essec-inbox
+    Master :essec-remote:
+    Slave :essec-local:
+    Patterns "INBOX"
+    Create Slave
+    Expunge Both
+    SyncState *
+
+Channel essec-all
+    Master :essec-remote:"[Gmail]/All Mail"
+    Slave :essec-local:archive
+    Create Slave
+    Expunge Both
+    SyncState *
+
+Channel essec-trash
+    Master :essec-remote:"[Gmail]/Trash"
+    Slave :essec-local:trash
+    Create Slave
+    Expunge Both
+    SyncState *
+
+Channel essec-spam
+    Master :essec-remote:"[Gmail]/Spam"
+    Slave :essec-local:spam
+    Create Slave
+    Expunge Both
+    SyncState *
+
+Channel essec-sent
+    Master :essec-remote:"[Gmail]/Sent Mail"
+    Slave :essec-local:sent
+    Create Slave
+    Expunge Both
+    SyncState *
+
+Channel essec-drafts
+    Master :essec-remote:"[Gmail]/Drafts"
+    Slave :essec-local:drafts
+    Create Slave
+    Expunge Both
+    SyncState *
+
+Channel essec-starred
+    Master :essec-remote:"[Gmail]/Starred"
+    Slave :essec-local:starred
+    Create Slave
+    Expunge Both
+    SyncState *
+
+Group essec
+    Channel essec-inbox
+    Channel essec-sent
+    Channel essec-drafts
+    Channel essec-trash
+    Channel essec-spam
+    Channel essec-all
+    Channel essec-starred
+
+############################################################
+# Common
+
+Group inboxes
+    Channel gmail-inbox
+    Channel essec-inbox
