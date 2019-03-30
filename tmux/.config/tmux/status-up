@@ -1,5 +1,5 @@
 # status left
-set -g status-left '#[fg=colour8](#S) #(whoami)#[fg=colour0]@#[fg=colour1]#H '
+set -g status-left '#[fg=colour8](#S) #(whoami)#[fg=colour0]@#[fg=colour1]#H  '
 
 # status right: system specific
 if-shell "uname | grep -q Darwin" "source-file ~/.config/tmux/status-right-osx" "source-file ~/.config/tmux/status-right-linux"
