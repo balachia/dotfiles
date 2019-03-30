@@ -15,6 +15,8 @@ Plug 'vim-scripts/The-Vim-Gardener'
 Plug 'flazz/vim-colorschemes'
 Plug 'w0ng/vim-hybrid'
 Plug 'sjl/badwolf'
+Plug 'noahfrederick/vim-noctu'
+Plug 'jeffkreeftmeijer/vim-dim'
 
 Plug 'itchyny/lightline.vim'
 
@@ -96,7 +98,7 @@ endif
 
 call plug#end()
 
-set termguicolors
+"set termguicolors
 
 "dark
 "colorscheme Sunburst
@@ -115,6 +117,10 @@ set termguicolors
 
 "colorscheme badwolf
 "colorscheme codeschool
+
+set background=dark
+colorscheme dim
+"colorscheme noctu
 
 " BASIC SETUP TIME!
 filetype indent plugin on
@@ -419,16 +425,18 @@ endfunction
 
 function! ThemeLight()
     set background=light
-    colorscheme autumnleaf
+    "colorscheme autumnleaf
     let g:lightline.colorscheme = 'PaperColor'
+    let g:lightline.colorscheme = '16color'
     call s:lightline_update()
     let g:toggles['theme'] = 'light'
 endfunction
 
 function! ThemeDark()
     set background=dark
-    colorscheme badwolf
-    let g:lightline.colorscheme = 'landscape'
+    "colorscheme badwolf
+    "let g:lightline.colorscheme = 'landscape'
+    let g:lightline.colorscheme = '16color'
     call s:lightline_update()
     let g:toggles['theme'] = 'dark'
 endfunction
@@ -591,26 +599,26 @@ nnoremap <leader>tol :call Toggle("linebreak", "off", function("LinebreakModeOn"
 nnoremap <leader>ton :NERDTreeToggle<CR>
 
 " default colorscheme
-if !has_key(g:toggles, 'theme')
-    if filereadable(expand('~/.theme'))
-        let user_theme=join(readfile(expand('~/.theme')), '\n')
-        if user_theme=~'^light.\?$'
-            :Light
-        else
-            :Dark
-        endif
-    elseif strftime("%H") >= 8 && strftime("%H") < 20
-        :Light
-    else
-        :Dark
-    endif
-endif
+"if !has_key(g:toggles, 'theme')
+"    if filereadable(expand('~/.theme'))
+"        let user_theme=join(readfile(expand('~/.theme')), '\n')
+"        if user_theme=~'^light.\?$'
+"            :Light
+"        else
+"            :Dark
+"        endif
+"    elseif strftime("%H") >= 8 && strftime("%H") < 20
+"        :Light
+"    else
+"        :Dark
+"    endif
+"endif
 
 " theme watcher
 " TODO: check for existence of theme and entr
-function! ThemeWatch()
-    let g:theme_watch_job = jobstart("echo " . expand('~/.theme') . " | entr neovim-theme.py '" . v:servername . "' /_")
-endfunction
+"function! ThemeWatch()
+"    let g:theme_watch_job = jobstart("echo " . expand('~/.theme') . " | entr neovim-theme.py '" . v:servername . "' /_")
+"endfunction
 
 "call ThemeWatch()
 
