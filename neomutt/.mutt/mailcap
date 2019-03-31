@@ -1,0 +1,9 @@
+# text
+text/html; lynx -dump -force_html %s; copiousoutput
+text/*; cat %s; copiousoutput
+
+# images
+image/*; imv %s
+
+# applications
+application/*; xdg-open %s
