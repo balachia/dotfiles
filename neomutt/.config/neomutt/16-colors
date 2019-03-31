@@ -21,7 +21,7 @@ color index brightmagenta default "~N"
 color index_flags default blue "~T"
 
 # menus
-color tree yellow default
+color tree color8 default
 color status brightblue default
 
 # compose
