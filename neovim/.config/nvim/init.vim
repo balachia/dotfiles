@@ -8,6 +8,8 @@ let os=substitute(system('uname'), '\n', '', '')
 call plug#begin('~/.vim/plugged')
 
 " My bundles
+Plug 'itchyny/lightline.vim'
+
 " colors
 Plug 'sickill/vim-sunburst'
 Plug 'vim-scripts/The-Vim-Gardener'
@@ -17,8 +19,7 @@ Plug 'w0ng/vim-hybrid'
 Plug 'sjl/badwolf'
 Plug 'noahfrederick/vim-noctu'
 Plug 'jeffkreeftmeijer/vim-dim'
-
-Plug 'itchyny/lightline.vim'
+Plug 'balachia/vim-ambi16'
 
 " motion
 Plug 'justinmk/vim-sneak'
@@ -119,8 +120,9 @@ call plug#end()
 "colorscheme codeschool
 
 set background=dark
-colorscheme dim
+"colorscheme dim
 "colorscheme noctu
+colorscheme ambi16
 
 " BASIC SETUP TIME!
 filetype indent plugin on
@@ -691,3 +693,10 @@ augroup END
 "    let &paste=pastem
 "endfunction
 
+nnoremap ,r :source ~/.config/nvim/init.vim<CR>
+
+let g:lightline.colorscheme = 'landscape'
+let g:lightline.colorscheme = 'ambi16'
+call s:lightline_update()
+
+nnoremap ,<space> :HLT!<cr>
