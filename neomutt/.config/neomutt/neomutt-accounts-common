@@ -1,0 +1,11 @@
+# add listings for all mailboxes
+#mailboxes   +gmail/INBOX \
+#            +essec/INBOX \
+
+mailboxes   +gmail/ \
+            +gmail/INBOX \
+            +essec/ \
+            +essec/INBOX \
+
+
+

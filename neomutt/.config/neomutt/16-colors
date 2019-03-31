@@ -1,0 +1,37 @@
+# Basic Colors ---------------------------------------------
+color normal default default
+color indicator brightwhite color8
+
+# index colors
+#color index fg bg
+#color index_author fg bg
+#color index_collapsed yellow red
+#color index_date color8 default
+#color index_flags yellow red
+#color index_flags yellow default
+#color index_label fg bg
+#color index_number fg bg
+#color index_size fg bg
+#color index_subject fg bg
+#color index_tag fg bg
+#color index_tags fg bg
+
+color index brightmagenta default "~N"
+#color index_subject brightmagenta default "~N"
+color index_flags default blue "~T"
+
+# menus
+color tree yellow default
+color status brightblue default
+
+# compose
+color header brightgreen default "^\\S+:"
+
+# Sidebar --------------------------------------------------
+color sidebar_ordinary default default
+#color sidebar_new yellow default
+color sidebar_highlight brightyellow default
+color sidebar_spoolfile magenta default
+color sidebar_divider brightblue default
+
+

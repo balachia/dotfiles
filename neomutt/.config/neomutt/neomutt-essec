@@ -1,0 +1,33 @@
+# Account: ESSEC -------------------------------------------
+set folder      = ~/Mail
+set spoolfile   = +essec/INBOX
+unmailboxes *
+mailboxes   +essec/ \
+            +essec/INBOX \
+            +essec/starred \
+            +essec/sent \
+            +essec/drafts \
+            +essec/trash \
+            +essec/spam \
+            +essec/archive \
+
+set postponed   = +essec/drafts
+set mbox        = +essec/archive
+
+# SMTP -----------------------------------------------------
+set from            = "vashevko@essec.edu"
+set sendmail        = "/usr/bin/msmtp -a essec"
+set sendmail_wait   = 0
+unset record
+
+# Gmail Bindings -------------------------------------------
+macro index,pager d     <save-message>=essec/trash<enter> "Trash"
+macro index,pager !     <save-message>=essec/spam<enter> "Report spam"
+macro index,pager e     <save-message>=essec/archive<enter> "Archive conversation"
+
+folder-hook +essec/INBOX 'macro index,pager y <save-message>=essec/archive<enter> "Archive conversation"'
+folder-hook +essec/trash macro index,pager y <save-message>=essec/INBOX<enter> "Move to inbox"
+folder-hook +essec/starred bind  index,pager y flag-message #"Toggle star"
+
+# Common Accounts Post-Setup -------------------------------
+source ~/.config/neomutt/neomutt-accounts-common

@@ -1,0 +1,33 @@
+# Account: Gmail -------------------------------------------
+set folder      = ~/Mail
+set spoolfile   = +gmail/INBOX
+unmailboxes *
+mailboxes   +gmail/ \
+            +gmail/INBOX \
+            +gmail/starred \
+            +gmail/sent \
+            +gmail/drafts \
+            +gmail/trash \
+            +gmail/spam \
+            +gmail/archive \
+
+set postponed   = +gmail/drafts
+set mbox        = +gmail/archive
+
+# SMTP -----------------------------------------------------
+set from            = "avashevko@gmail.com"
+set sendmail        = "/usr/bin/msmtp -a gmail"
+set sendmail_wait   = 0
+unset record
+
+# Gmail Bindings -------------------------------------------
+macro index,pager d     <save-message>=gmail/trash<enter> "Trash"
+macro index,pager !     <save-message>=gmail/spam<enter> "Report spam"
+macro index,pager e     <save-message>=gmail/archive<enter> "Archive conversation"
+
+folder-hook +gmail/INBOX 'macro index,pager y <save-message>=gmail/archive<enter> "Archive conversation"'
+folder-hook +gmail/trash macro index,pager y <save-message>=gmail/INBOX<enter> "Move to inbox"
+folder-hook +gmail/starred bind  index,pager y flag-message #"Toggle star"
+
+# Common Accounts Post-Setup -------------------------------
+source ~/.config/neomutt/neomutt-accounts-common
