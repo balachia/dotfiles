@@ -1,4 +1,5 @@
 # text
+text/html; firefox %s &; needsterminal
 text/html; lynx -dump -force_html %s; copiousoutput
 text/*; cat %s; copiousoutput
 
@@ -6,4 +7,5 @@ text/*; cat %s; copiousoutput
 image/*; imv %s
 
 # applications
-application/*; xdg-open %s
+#application/*; xdg-open %s
+application/*; mimeopen %s

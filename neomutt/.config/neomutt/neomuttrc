@@ -116,6 +116,8 @@ bind pager G  bottom
 
 bind pager R  group-reply
 
+macro pager \Cb "|urlview<enter>" "call urlview to open links"
+
 # View attachments properly.
 bind attach <return> view-mailcap
 alternative_order text/plain text/html
