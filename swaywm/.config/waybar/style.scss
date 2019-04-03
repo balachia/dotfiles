@@ -34,7 +34,7 @@ window#waybar {
     border-bottom: $border-size solid $strong-tint;
 }
 
-#clock, #battery, #cpu, #memory, #temperature, #backlight, #network, #pulseaudio, #custom-spotify, #custom-rot90, #tray, #mode, #idle_inhibitor {
+#clock, #battery, #cpu, #memory, #temperature, #backlight, #network, #pulseaudio, #custom-spotify, #custom-rot90, #custom-bluetooth, #tray, #mode, #idle_inhibitor {
     color: #ffffff;
     background-color: transparent;
     padding: 0 $padding;
@@ -149,4 +149,20 @@ window#waybar {
     //color: #111111;
     //padding: 0 10px;
     //margin: 0 5px;
+}
+
+#custom-bluetooth.power-on {
+    color: white;
+    border-bottom-color: #7570b3;
+}
+
+#custom-bluetooth.power-off {
+    color: $weak-tint;
+    border-bottom-color: #e7298a;
+}
+
+#custom-bluetooth.scanning {
+    color: white;
+    //border-bottom: $border-size dotted #7570b3;
+    border-bottom: $border-size dotted #ffffff;
 }

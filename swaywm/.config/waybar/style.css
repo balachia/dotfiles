@@ -25,7 +25,7 @@ window#waybar {
   border-bottom: 3px solid rgba(255, 255, 255, 0.66);
 }
 
-#clock, #battery, #cpu, #memory, #temperature, #backlight, #network, #pulseaudio, #custom-spotify, #custom-rot90, #tray, #mode, #idle_inhibitor {
+#clock, #battery, #cpu, #memory, #temperature, #backlight, #network, #pulseaudio, #custom-spotify, #custom-rot90, #custom-bluetooth, #tray, #mode, #idle_inhibitor {
   color: #ffffff;
   background-color: transparent;
   padding: 0 8px;
@@ -133,4 +133,19 @@ window#waybar {
   background-color: rgba(255, 255, 255, 0.33);
   border-radius: 6px;
   border-bottom: 3px solid rgba(255, 255, 255, 0.33);
+}
+
+#custom-bluetooth.power-on {
+  color: white;
+  border-bottom-color: #7570b3;
+}
+
+#custom-bluetooth.power-off {
+  color: rgba(255, 255, 255, 0.33);
+  border-bottom-color: #e7298a;
+}
+
+#custom-bluetooth.scanning {
+  color: white;
+  border-bottom: 3px dotted #ffffff;
 }

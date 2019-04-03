@@ -2,7 +2,7 @@
     "layer": "top",
     "modules-left": ["sway/workspaces", "sway/mode"],
     "modules-center": ["sway/window"],
-    "modules-right": ["cpu", "memory", "network", "backlight", "idle_inhibitor", "custom/rot90", "battery", "clock"],
+    "modules-right": ["cpu", "memory", "custom/bluetooth", "network", "backlight", "idle_inhibitor", "custom/rot90", "battery", "clock"],
     "sway/window": {
         "max-length": 50
     },
@@ -57,5 +57,13 @@
 	"on-click": "swaymsg output eDP-1 transform 90 clockwise",
 	"on-click-right": "swaymsg output eDP-1 transform 90 anticlockwise",
 	"tooltip-format": "Rotate display"
+    },
+    "custom/bluetooth": {
+        "exec": "~/.config/waybar/scripts/bluetooth.sh",
+        "interval": 30,
+        "signal": 10,
+        "format": "",
+        "on-click": "~/.config/waybar/scripts/bluetooth.sh power-toggle",
+        "tooltip": true
     }
 }
