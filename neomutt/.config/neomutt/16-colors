@@ -1,6 +1,6 @@
 # Basic Colors ---------------------------------------------
 color normal default default
-color indicator brightwhite color8
+color indicator brightcolor15 color0
 
 # index colors
 #color index fg bg
@@ -16,7 +16,7 @@ color indicator brightwhite color8
 #color index_tag fg bg
 #color index_tags fg bg
 
-color index brightmagenta default "~N"
+color index brightcolor5 default "~N"
 #color index_subject brightmagenta default "~N"
 color index_flags default blue "~T"
 
@@ -30,7 +30,7 @@ color header brightgreen default "^\\S+:"
 # Sidebar --------------------------------------------------
 color sidebar_ordinary default default
 #color sidebar_new yellow default
-color sidebar_highlight brightyellow default
+color sidebar_highlight brightyellow color0
 color sidebar_spoolfile magenta default
 color sidebar_divider brightblue default
 
