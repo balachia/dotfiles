@@ -8,6 +8,8 @@
 #
 # Logo key. Use Mod1 for Alt.
 set $mod Mod4
+set $alt Mod1
+set $ctrl Mod2
 # Home row direction keys, like vim
 set $left h
 set $down j
@@ -23,7 +25,8 @@ set $menu rofi -show run
 ### Output configuration
 #
 # Default wallpaper (more resolutions are available in /usr/share/backgrounds/sway/)
-output * bg /usr/share/backgrounds/sway/Sway_Wallpaper_Blue_1920x1080.png fill
+#output * bg /usr/share/backgrounds/sway/Sway_Wallpaper_Blue_1920x1080.png fill
+output * bg ~/pictures/bg/bg.png fill
 #
 # Example configuration:
 #
@@ -168,7 +171,7 @@ output * bg /usr/share/backgrounds/sway/Sway_Wallpaper_Blue_1920x1080.png fill
     bindsym $mod+space focus mode_toggle
 
     # move focus to the parent container
-    bindsym $mod+a focus parent
+    #bindsym $mod+a focus parent
 #
 # Scratchpad:
 #
@@ -211,6 +214,9 @@ bindsym $mod+r mode "resize"
 # Send hotkeys (in particular Mod4) into whatever application we are interested in (in particular, virt-manager)
 #
 mode "immersion" {
+    # convenience for "alt-tabbing"
+    bindsym XF86Tools workspace 1
+
     # return to default mode
     bindsym $mod+Shift+Escape mode "default"
 }
@@ -242,6 +248,30 @@ bar {
     #}
 }
 
+# opacity play
+set $opacity 0.90
+for_window [app_id="Alacritty"] opacity $opacity
+for_window [class="kitty"] opacity $opacity
+
+bindsym $mod+n opacity 1
+bindsym --release $mod+n opacity $opacity
+bindsym $mod+Shift+n opacity 1
+
+# styling
+
+# app rules
+assign [class="Slack"] 
+bindsym $mod+Shift+s workspace 
+bindsym $mod+$alt+s move container to workspace 
+
+# screenshots
+bindsym $mod+F4 exec grim ~/pictures/$(date +'%Y-%m-%d-%H%M%S_grim.png')
+bindsym $mod+Shift+F4 exec grim -g "$(slurp)" ~/pictures/$(date +'%Y-%m-%d-%H%M%S_grim.png')
+
+
+default_border normal 0
+
+
 # inputs
 input * {
     repeat_delay 250
@@ -252,5 +282,13 @@ input * {
 
 # redo this in system-specific configuration
 input 0:0:Elan_Touchscreen map_to_output eDP-1
+
+# startup items
+exec mako
+exec swayidle -w \
+         timeout 180 'swaylock -f' \
+         timeout 600 'swaymsg "output * dpms off"' \
+              resume 'swaymsg "output * dpms on"' \
+         before-sleep 'swaylock -f'
 
 include /etc/sway/config.d/*
