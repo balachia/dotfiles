@@ -35,6 +35,9 @@ else
     set -x VISUAL 'vim'
 end
 
+# bug in mutt/neomutt resetting terminal colors
+alias neomutt='env TERM=screen-256color neomutt'
+
 # load rvm slowish
 # something about ruby?
 #rvm() {
