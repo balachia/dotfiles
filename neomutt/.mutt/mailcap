@@ -3,6 +3,10 @@ text/html; firefox %s &; needsterminal
 text/html; lynx -dump -force_html %s; copiousoutput
 text/*; cat %s; copiousoutput
 
+# message
+message/rfc822; firefox %s &; needsterminal
+message/rfc822; lynx -dump -force_html %s; copiousoutput
+
 # images
 image/*; imv %s
 
