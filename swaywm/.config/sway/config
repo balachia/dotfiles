@@ -284,11 +284,11 @@ input * {
 input 0:0:Elan_Touchscreen map_to_output eDP-1
 
 # startup items
-exec mako
-exec swayidle -w \
-         timeout 180 'swaylock -f' \
-         timeout 600 'swaymsg "output * dpms off"' \
-              resume 'swaymsg "output * dpms on"' \
-         before-sleep 'swaylock -f'
+#exec mako
+#exec swayidle -w \
+#         timeout 180 'swaylock -f' \
+#         timeout 600 'swaymsg "output * dpms off"' \
+#              resume 'swaymsg "output * dpms on"' \
+#         before-sleep 'swaylock -f'
 
 include /etc/sway/config.d/*
