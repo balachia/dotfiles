@@ -2,7 +2,7 @@
     "layer": "top",
     "modules-left": ["sway/workspaces", "sway/mode"],
     "modules-center": ["sway/window"],
-    "modules-right": ["cpu", "memory", "custom/bluetooth", "network", "backlight", "idle_inhibitor", "custom/rot90", "battery", "clock"],
+    "modules-right": ["cpu", "memory", "custom/bluetooth", "network", "pulseaudio", "backlight", "idle_inhibitor", "custom/rot90", "battery", "clock"],
     "sway/window": {
         "max-length": 50
     },
@@ -38,6 +38,22 @@
 	"tooltip-format-disconnected": "{ifname}",
 	"tooltip-format-ethernet": "{ifname}",
 	"tooltip-format-wifi": "{essid} ({signalStrength}%)"
+    },
+    "pulseaudio": {
+        "format": "{volume}% {icon}",
+        "format-bluetooth": "{volume}% {icon}",
+        "format-muted": "",
+        "format-icons": {
+            "headphones": "",
+            "handsfree": "",
+            "headset": "",
+            "phone": "",
+            "portable": "",
+            "car": "",
+            "default": ["", ""]
+        },
+        "scroll-step": 1,
+        "on-click": "pavucontrol"
     },
     "memory": {
         "format": "MEM {}%"

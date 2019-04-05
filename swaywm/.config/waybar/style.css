@@ -7,7 +7,7 @@
 }
 
 window#waybar {
-  background: #000;
+  background: rgba(0, 0, 0, 0.66);
   border-bottom: 3px solid transparent;
   color: #ffffff;
 }
@@ -89,13 +89,7 @@ window#waybar {
 }
 
 #pulseaudio {
-  background: #f1c40f;
-  color: #000000;
-}
-
-#pulseaudio.muted {
-  background: #90b1b1;
-  color: #2a5c45;
+  border-bottom-color: #f1c40f;
 }
 
 #custom-spotify {
