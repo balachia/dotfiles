@@ -1,0 +1,12 @@
+[Unit]
+Description=IMAP IDLE for ESSEC account
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/imapnotify -c ~/.config/imap_inotify/config-essec.js
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=sway-session.target
+After=gpg-agent.service

@@ -1,0 +1,12 @@
+[Unit]
+Description=IMAP IDLE for Gmail account
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/imapnotify -c ~/.config/imap_inotify/config-gmail.js
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=sway-session.target
+After=gpg-agent.service

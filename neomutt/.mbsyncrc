@@ -190,3 +190,18 @@ Group essec
 Group inboxes
     Channel gmail-inbox
     Channel essec-inbox
+
+Group etc
+    Channel gmail-sent
+    Channel gmail-drafts
+    Channel gmail-trash
+    Channel gmail-spam
+    Channel gmail-all
+    Channel gmail-starred
+    Channel essec-sent
+    Channel essec-drafts
+    Channel essec-trash
+    Channel essec-spam
+    Channel essec-all
+    Channel essec-starred
+
