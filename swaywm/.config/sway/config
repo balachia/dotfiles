@@ -90,7 +90,9 @@ output * bg ~/pictures/bg/bg.png fill
 
     bindsym $mod+Shift+XF86Tools exec swaylock
     bindsym $mod+F6 exec light -U 5
+    bindsym $mod+Shift+F6 exec light -U 1
     bindsym $mod+F7 exec light -A 5
+    bindsym $mod+Shift+F7 exec light -A 1
 
     bindsym $mod+F8 exec pamixer -t
     bindsym $mod+F9 exec pamixer -d 5
@@ -147,6 +149,13 @@ output * bg ~/pictures/bg/bg.png fill
     bindsym $mod+Shift+0 move container to workspace 10
     # Note: workspaces can have any name you want, not just numbers.
     # We just use 1-10 as the default.
+
+    assign [class="Slack"] 
+    bindsym $mod+Shift+s workspace 
+    bindsym $mod+$alt+s move container to workspace 
+
+    bindsym $mod+$alt+$left workspace prev
+    bindsym $mod+$alt+$right workspace next
 #
 # Layout stuff:
 #
@@ -241,6 +250,8 @@ bar {
     #status_command while date +'%Y-%m-%d %l:%M %p'; do sleep 1; done
     swaybar_command waybar
 
+    strip_workspace_numbers yes
+
     #colors {
     #    statusline #ffffff
     #    background #323232
@@ -260,9 +271,6 @@ bindsym $mod+Shift+n opacity 1
 # styling
 
 # app rules
-assign [class="Slack"] 
-bindsym $mod+Shift+s workspace 
-bindsym $mod+$alt+s move container to workspace 
 
 # screenshots
 bindsym $mod+F4 exec grim ~/pictures/$(date +'%Y-%m-%d-%H%M%S_grim.png')
