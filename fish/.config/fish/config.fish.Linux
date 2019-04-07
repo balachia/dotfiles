@@ -1,5 +1,5 @@
 # add conda to path
-set PATH /opt/miniconda3/bin $PATH 
+set PATH $PATH /opt/miniconda3/bin
 
 # add ruby to path
 if type -q ruby
