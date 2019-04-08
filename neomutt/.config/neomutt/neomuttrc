@@ -52,10 +52,12 @@ unhdr_order *                           # some distros order things by default
 hdr_order from: to: cc: date: subject:  # and in this order
 
 # Index View Options ---------------------------------------
-set date_format = "%m-%d-%y"
-set index_format = "[%Z]  %D  %-20.20F  %?M?+&│? %?X?%X& ?  %s"
-set sort = threads                         # like gmail
-set sort_aux = reverse-last-date-received  # like gmail
+#set date_format = "%m-%d-%y"
+set index_format = "[%Z]  %(%e-%b-%y)  %-20.20F  %?M?+&│? %?X?%X& ?  %s"
+#set sort = threads                         # like gmail
+#set sort_aux = reverse-last-date-received  # like gmail
+set sort = reverse-threads
+set sort_aux = last-date-received
 set uncollapse_jump                        # don't collapse on an unread message
 set sort_re                                # thread based on regex
 set reply_regexp = "^(([Rr][Ee]?(\[[0-9]+\])?: *)?(\[[^]]+\] *)?)*"
@@ -65,11 +67,16 @@ unset collapse_unread
 # Key Bindings and Masks -----------------------------------
 bind index,pager g  noop
 
+# Index/Pager Common Bindings ------------------------------
+# default to reply-all
+bind index,pager r group-reply
+bind index,pager R reply
+
 # Index Key Bindings ---------------------------------------
 bind index gg       first-entry
 bind index G        last-entry
 
-bind index R        group-reply
+#bind index R        group-reply
 bind index <tab>    sync-mailbox
 bind index <space>  collapse-thread
 
@@ -77,8 +84,6 @@ bind index <space>  collapse-thread
 #macro index \Cr "T~U<enter><tag-prefix><clear-flag>N<untag-pattern>.<enter>" "mark all messages as read"
 
 # Sync email
-#macro index O "<shell-escape>offlineimap<enter>"           "run offlineimap to sync all mail"
-#macro index o "<shell-escape>offlineimap -qf INBOX<enter>" "run offlineimap to sync inbox"
 macro index O "<shell-escape>mbsync -a<enter>"          "run mbsync to sync all mail"
 macro index o "<shell-escape>mbsync inboxes<enter>"     "run mbsync to sync inbox"
 
@@ -114,7 +119,7 @@ bind pager j  next-line
 bind pager gg top
 bind pager G  bottom
 
-bind pager R  group-reply
+#bind pager R  group-reply
 
 macro pager \Cb "|urlview<enter>" "call urlview to open links"
 
