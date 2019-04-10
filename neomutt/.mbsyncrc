@@ -7,7 +7,7 @@ IMAPAccount gmail
     # Address to connect to
     Host imap.gmail.com
     User avashevko@gmail.com
-    PassCmd "gpg --for-your-eyes-only --no-tty -qd ~/.credentials/gmail.gpg"
+    PassCmd "pass mutt/gmail.com"
     SSLType IMAPS
     CertificateFile /etc/ssl/certs/ca-certificates.crt
 
@@ -108,7 +108,7 @@ IMAPAccount essec
     # Address to connect to
     Host imap.gmail.com
     User b00755043@essec.edu
-    PassCmd "gpg --for-your-eyes-only --no-tty -qd ~/.credentials/essec.gpg"
+    PassCmd "pass mutt/essec.edu"
     #AuthMechs XOAUTH2
     SSLType IMAPS
     CertificateFile /etc/ssl/certs/ca-certificates.crt
