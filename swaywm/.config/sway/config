@@ -25,7 +25,7 @@ set $menu rofi -show run
 ### Output configuration
 #
 # Default wallpaper (more resolutions are available in /usr/share/backgrounds/sway/)
-#output * bg /usr/share/backgrounds/sway/Sway_Wallpaper_Blue_1920x1080.png fill
+output * bg /usr/share/backgrounds/sway/Sway_Wallpaper_Blue_1920x1080.png fill
 output * bg ~/pictures/bg/bg.png fill
 #
 # Example configuration:
@@ -250,7 +250,7 @@ bar {
     #status_command while date +'%Y-%m-%d %l:%M %p'; do sleep 1; done
     swaybar_command waybar
 
-    strip_workspace_numbers yes
+    #strip_workspace_numbers yes
 
     #colors {
     #    statusline #ffffff
@@ -270,6 +270,9 @@ bindsym $mod+Shift+n opacity 1
 
 # quality of life
 bindsym $mod+backspace exec makoctl dismiss
+
+# pass integration
+bindsym $mod+p exec passmenu
 
 # styling
 
