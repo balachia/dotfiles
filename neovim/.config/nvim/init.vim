@@ -11,14 +11,14 @@ call plug#begin('~/.vim/plugged')
 Plug 'itchyny/lightline.vim'
 
 " colors
-Plug 'sickill/vim-sunburst'
-Plug 'vim-scripts/The-Vim-Gardener'
+"Plug 'sickill/vim-sunburst'
+"Plug 'vim-scripts/The-Vim-Gardener'
 "Plug 'reedes/vim-colors-pencil'
-Plug 'flazz/vim-colorschemes'
-Plug 'w0ng/vim-hybrid'
-Plug 'sjl/badwolf'
-Plug 'noahfrederick/vim-noctu'
-Plug 'jeffkreeftmeijer/vim-dim'
+"Plug 'flazz/vim-colorschemes'
+"Plug 'w0ng/vim-hybrid'
+"Plug 'sjl/badwolf'
+"Plug 'noahfrederick/vim-noctu'
+"Plug 'jeffkreeftmeijer/vim-dim'
 Plug 'balachia/vim-ambi16'
 
 " motion
@@ -33,22 +33,24 @@ Plug 'tpope/vim-surround'
 Plug 'tpope/vim-repeat'
 
 " programming
-Plug 'majutsushi/tagbar'
+"Plug 'majutsushi/tagbar'
 "Plug 'ludovicchabant/vim-gutentags'
 Plug 'airblade/vim-gitgutter'
 Plug 'scrooloose/nerdcommenter'
+Plug 'wellle/targets.vim'
 
 Plug 'vim-scripts/gnupg.vim'
 Plug 'scrooloose/nerdtree'
 Plug 'tpope/vim-fugitive'
 Plug 'lambdalisue/gina.vim'
+Plug 'jiangmiao/auto-pairs'
 Plug 'tpope/vim-unimpaired'
 "Plug 'sjl/gundo.vim'
 Plug 'junegunn/goyo.vim'
 "Plug 'reedes/vim-pencil'
 Plug 'reedes/vim-wordy'
 Plug 'reedes/vim-lexical'
-Plug 'reedes/vim-thematic'
+"Plug 'reedes/vim-thematic'
 Plug 'jpalardy/vim-slime'
 Plug 'Shougo/vimproc.vim'
 Plug 'Shougo/unite.vim'
@@ -56,12 +58,21 @@ Plug 'Shougo/unite.vim'
 Plug 'troydm/zoomwintab.vim'
 Plug 'tomtom/tlib_vim'
 Plug 'marcweber/vim-addon-mw-utils'
-Plug 'garbas/vim-snipmate'
+"Plug 'garbas/vim-snipmate'
 Plug 'kshenoy/vim-signature'
 Plug 'mileszs/ack.vim'
 Plug 'neomake/neomake'
 Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
 Plug 'zchee/deoplete-jedi'
+
+"LanguageClient
+Plug 'autozimu/LanguageClient-neovim', {
+    \ 'branch': 'next',
+    \ 'do': 'bash install.sh',
+    \ }
+let g:LanguageClient_serverCommands = {
+    \ 'r': ['R', '--slave', '-e', 'languageserver::run()'],
+    \ }
 
 "R
 Plug 'jalvesaq/Nvim-R'
@@ -236,15 +247,18 @@ nmap <Leader>vt :e %:r.tex<CR>
 nmap <Leader>vh :!open %:r.html<CR>
 
 " markdown makers
-nnoremap <Leader>mp :w <bar> NeomakeSh panopy pdfpp %:r.md<CR>
-nnoremap <Leader>mh :w <bar> NeomakeSh panopy mjhtml %:r.md<CR>
-nnoremap <Leader>mt :w <bar> NeomakeSh panopy latexpp %:r.md<CR>
+"nnoremap <Leader>mp :w <bar> NeomakeSh panopy pdfpp %:r.md<CR>
+"nnoremap <Leader>mh :w <bar> NeomakeSh panopy mjhtml %:r.md<CR>
+"nnoremap <Leader>mt :w <bar> NeomakeSh panopy latexpp %:r.md<CR>
+nnoremap <Leader>mp :w <bar> NeomakeSh helpan.sh pdfpp %:r.md<CR>
+nnoremap <Leader>mh :w <bar> NeomakeSh helpan.sh mjhtml %:r.md<CR>
+nnoremap <Leader>mt :w <bar> NeomakeSh helpan.sh latexpp %:r.md<CR>
 nnoremap <Leader>mrm :w <bar> NeomakeSh Rscript -e "knitr::knit('%:r.Rmd')"<CR>
 nnoremap <Leader>mrh :w <bar> NeomakeSh Rscript -e "rmarkdown::render('%:r.Rmd', output_format='html_document')"<CR>
 nnoremap <Leader>mrp :w <bar> NeomakeSh Rscript -e "rmarkdown::render('%:r.Rmd', output_format='pdf_document')"<CR>
 
 " critic markdown word count
-autocmd! Filetype markdown,pandoc,rmd nmap <buffer> <Leader>wc :echom system('TEST=$(mktemp); criticmarkuphs ' . expand('%') . ' $TEST; wc -w $TEST')<CR>
+autocmd! Filetype markdown,pandoc,rmd nmap <buffer> <Leader>wc :echom system('TEST=$(mktemp); criticmarkuphs -i ' . expand('%') . ' -o $TEST; wc -w $TEST')<CR>
 autocmd! Filetype tex nmap <buffer> <Leader>wc :VimtexCountWords<cr>
 
 " Goyo
@@ -312,7 +326,8 @@ function! ClistLength()
 endfunction
 
 " pandoc shit
-let g:pandoc#biblio#bibs = [expand('~/Documents/library-clean.bib')]
+"let g:pandoc#biblio#bibs = [expand('~/Documents/library-clean.bib')]
+let g:pandoc#biblio#bibs = [expand('~/Documents/library-zotero.bib')]
 let g:pandoc#biblio#use_bibtool = 1
 let g:pandoc#completion#bib#mode = 'citeproc'
 let g:pandoc#formatting#mode = 'h'
@@ -327,7 +342,8 @@ let g:pandoc#modules#disabled = ["folding"]
 
 " unite bibtex!
 "let g:unite_bibtex_bib_files=[expand('~/Documents/library-clean.bib')]
-let g:unite_bibtex_bib_files=[expand('~/Documents/library.bib')]
+"let g:unite_bibtex_bib_files=[expand('~/Documents/library.bib')]
+let g:unite_bibtex_bib_files=[expand('~/Documents/library-zotero.bib')]
 let g:unite_bibtex_cache_dir=$TMPDIR
 nmap <Leader>ct :Unite -start-insert bibtex<CR>
 imap <C-X>c <C-o>:Unite -start-insert bibtex<CR>
@@ -340,6 +356,9 @@ let g:table_mode_header_fillchar="="
 let g:slime_target = "tmux"
 let g:slime_default_config = {"socket_name": "default", "target_pane": ".1"}
 let g:slime_python_ipython = 1
+
+"vimtex stuff
+let g:tex_flavor = 'latex'
 
 " slimux configuration
 map <Leader>l :SlimuxREPLSendLine<CR>
@@ -354,8 +373,8 @@ command! Bd bp | sp | bn | bd
 map <F5> :setlocal spell! spelllang=en_us<CR>
 
 " symbol viz
-set listchars=eol:$,tab:>-,trail:~,extends:>,precedes:<
-map <F6> :set list!<CR>
+"set listchars=eol:$,tab:>-,trail:~,extends:>,precedes:<
+"map <F6> :set list!<CR>
 
 " better fold management
 autocmd InsertEnter * if !exists('w:last_fdm') | let w:last_fdm=&foldmethod | setlocal foldmethod=manual | endif
