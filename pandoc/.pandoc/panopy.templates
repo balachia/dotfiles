@@ -148,7 +148,6 @@ beamtex:
 
 html:
     self-contained:
-    template: default.html
     default-image-extension: png
     __pre__:
         - criticmarkuphs -i %.md -o %.cm.md
@@ -169,7 +168,6 @@ html:
 mjhtml:
     __inherits__: html
     mathjax: ~/.pandoc/dynomathjax.js
-    R:
 
 notehtml:
     __inherits__: html
