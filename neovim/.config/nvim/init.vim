@@ -216,6 +216,10 @@ let r_syntax_folding = 1
 " r plugin hijacking my buffer switch key
 nmap <LocalLeader>cr <Plug>RRightComment
 
+" R underscore rules
+let R_assign = 0 
+autocmd! Filetype r,rmd imap <buffer> <A--> <ESC>:call ReplaceUnderS()<CR>a
+
 " ============================================================
 " keybinds
 "nmap <Leader>gs :Gstatus<cr>
