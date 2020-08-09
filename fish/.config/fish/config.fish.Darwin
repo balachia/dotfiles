@@ -11,5 +11,5 @@ set PATH ~/Library/Haskell/bin ~/.cabal/bin $PATH
 set PATH /usr/local/miniconda3/bin $PATH
 
 # java shit
-set -x JAVA_HOME (/usr/libexec/java_home)
+#set -x JAVA_HOME (/usr/libexec/java_home)
 
