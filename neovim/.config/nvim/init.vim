@@ -358,12 +358,19 @@ let g:table_mode_header_fillchar="="
 
 " vim-slime stuff
 let g:slime_target = "tmux"
-let g:slime_default_config = {"socket_name": "default", "target_pane": ".1"}
-let g:slime_python_ipython = 1
-autocmd! Filetype python nmap <buffer> <Leader>l :SlimeLineSend<CR>
-autocmd! Filetype python nmap <buffer> <Leader>s :SlimeMotionSend<CR>
-"autocmd! Filetype python nmap <buffer> <Leader>s :SlimeParagraphSend<CR>
-autocmd! Filetype python xmap <buffer> <Leader>s :SlimeRegionSend<CR>
+let g:slime_default_config = {"socket_name": "default", "target_pane": ".2"}
+let g:slime_dont_ask_default = 1
+let g:slime_no_mappings = 1
+augroup slime
+    autocmd!
+    autocmd Filetype python let g:slime_python_ipython = 1
+    autocmd Filetype python nmap <buffer> <localleader>l <Plug>SlimeLineSend
+    autocmd Filetype python nmap <buffer> <localleader>d <Plug>SlimeLineSendj
+    autocmd Filetype python nmap <buffer> <localleader><enter> :call slime#send("\r")<CR>
+    autocmd Filetype python nmap <buffer> <localleader>s <Plug>SlimeMotionSend
+    autocmd Filetype python xmap <buffer> <localleader>s <Plug>SlimeRegionSend
+    autocmd Filetype python nmap <buffer> <localleader>ss <Plug>SlimeParagraphSend
+augroup END
 
 "vimtex stuff
 let g:tex_flavor = 'latex'
