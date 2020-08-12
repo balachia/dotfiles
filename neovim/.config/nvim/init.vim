@@ -360,13 +360,17 @@ let g:table_mode_header_fillchar="="
 let g:slime_target = "tmux"
 let g:slime_default_config = {"socket_name": "default", "target_pane": ".1"}
 let g:slime_python_ipython = 1
+autocmd! Filetype python nmap <buffer> <Leader>l :SlimeLineSend<CR>
+autocmd! Filetype python nmap <buffer> <Leader>s :SlimeMotionSend<CR>
+"autocmd! Filetype python nmap <buffer> <Leader>s :SlimeParagraphSend<CR>
+autocmd! Filetype python xmap <buffer> <Leader>s :SlimeRegionSend<CR>
 
 "vimtex stuff
 let g:tex_flavor = 'latex'
 
 " slimux configuration
-map <Leader>l :SlimuxREPLSendLine<CR>
-vmap <Leader>l :SlimuxREPLSendSelection<CR>
+"map <Leader>l :SlimuxREPLSendLine<CR>
+"vmap <Leader>l :SlimuxREPLSendSelection<CR>
 "map <Leader>a :SlimuxShellLast<CR>
 "map <Leader>k :SlimuxSendKeysLast<CR>
 
