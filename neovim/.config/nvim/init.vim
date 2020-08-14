@@ -39,6 +39,7 @@ Plug 'airblade/vim-gitgutter'
 Plug 'scrooloose/nerdcommenter'
 Plug 'wellle/targets.vim'
 
+Plug 'junegunn/fzf'
 Plug 'vim-scripts/gnupg.vim'
 Plug 'scrooloose/nerdtree'
 Plug 'tpope/vim-fugitive'
@@ -194,7 +195,7 @@ set shell=/bin/sh
 nnoremap <C-L> :nohl<CR><C-L>
 
 " fzf plugin
-set rtp+=/usr/local/opt/fzf
+"set rtp+=/usr/local/opt/fzf
 
 " remap leader
 let mapleader=","
