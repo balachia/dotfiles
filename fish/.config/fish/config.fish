@@ -1,5 +1,5 @@
 # set paths
-set PATH ~/.local/bin /usr/local/bin $PATH
+set PATH /opt/local/bin ~/.local/bin /opt/homebrew/bin $PATH
 
 # color theming
 if status --is-interactive
