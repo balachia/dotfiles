@@ -11,14 +11,6 @@ call plug#begin('~/.vim/plugged')
 Plug 'itchyny/lightline.vim'
 
 " colors
-"Plug 'sickill/vim-sunburst'
-"Plug 'vim-scripts/The-Vim-Gardener'
-"Plug 'reedes/vim-colors-pencil'
-"Plug 'flazz/vim-colorschemes'
-"Plug 'w0ng/vim-hybrid'
-"Plug 'sjl/badwolf'
-"Plug 'noahfrederick/vim-noctu'
-"Plug 'jeffkreeftmeijer/vim-dim'
 Plug 'balachia/vim-ambi16'
 
 " motion
@@ -26,15 +18,12 @@ Plug 'justinmk/vim-sneak'
 Plug 'kana/vim-textobj-user'
 Plug 'reedes/vim-wheel'
 Plug 'reedes/vim-textobj-sentence'
-"Plug 'yonchu/accelerated-smooth-scroll'
 Plug 'yuttie/comfortable-motion.vim'
 
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-repeat'
 
 " programming
-"Plug 'majutsushi/tagbar'
-"Plug 'ludovicchabant/vim-gutentags'
 Plug 'airblade/vim-gitgutter'
 Plug 'scrooloose/nerdcommenter'
 Plug 'wellle/targets.vim'
@@ -47,7 +36,8 @@ Plug 'lambdalisue/gina.vim'
 Plug 'jiangmiao/auto-pairs'
 Plug 'tpope/vim-unimpaired'
 "Plug 'sjl/gundo.vim'
-Plug 'junegunn/goyo.vim'
+"Plug 'junegunn/goyo.vim'
+"Plug 'Pocco81/TrueZen.nvim'
 "Plug 'reedes/vim-pencil'
 Plug 'reedes/vim-wordy'
 Plug 'reedes/vim-lexical'
@@ -56,7 +46,7 @@ Plug 'jpalardy/vim-slime'
 Plug 'Shougo/vimproc.vim'
 Plug 'Shougo/unite.vim'
 "Plug 'ZoomWin'
-Plug 'troydm/zoomwintab.vim'
+"Plug 'troydm/zoomwintab.vim'
 Plug 'tomtom/tlib_vim'
 Plug 'marcweber/vim-addon-mw-utils'
 "Plug 'garbas/vim-snipmate'
@@ -113,27 +103,8 @@ call plug#end()
 
 "set termguicolors
 
-"dark
-"colorscheme Sunburst
-"colorscheme gardener
-"colorscheme ir_black
-"colorscheme herald
-"colorscheme jellyx
-"colorscheme underwater
-"colorscheme hybrid
-
-"light
-"colorscheme pencil
-"colorscheme summerfruit
-"colorscheme flatui
-"colorscheme hemisu
-
-"colorscheme badwolf
-"colorscheme codeschool
-
+" terminal colors
 set background=dark
-"colorscheme dim
-"colorscheme noctu
 colorscheme ambi16
 
 " BASIC SETUP TIME!
@@ -344,6 +315,8 @@ nmap <Leader>taf :call pandoc#formatting#ToggleAutoFormat()
 "" HAHA I DID IT! FUCK FOLDS! THIS WAS THE SPEED ISSUE
 let g:pandoc#modules#disabled = ["folding"]
 
+" rmarkdown shit
+let g:NERDCustomDelimiters = { 'rmd': { 'left': '#', 'leftAlt': '#''' } }
 
 " unite bibtex!
 "let g:unite_bibtex_bib_files=[expand('~/Documents/library-clean.bib')]
@@ -361,7 +334,7 @@ let g:table_mode_header_fillchar="="
 let g:slime_target = "tmux"
 let g:slime_default_config = {"socket_name": "default", "target_pane": ".2"}
 let g:slime_dont_ask_default = 1
-let g:slime_no_mappings = 1
+"let g:slime_no_mappings = 1
 augroup slime
     autocmd!
     autocmd Filetype python let g:slime_python_ipython = 1
@@ -431,23 +404,6 @@ command! Code silent! iunmap <buffer> .|
 nnoremap Q gwip
 "autocmd FileType markdown,pandoc,rmd :Prose
 
-" light/dark colorschemes
-"function! s:lightline_update()
-    "if !exists('g:loaded_lightline')
-        "return
-    "endif
-    "try
-        "if g:colors_name =~# 'wombat\|solarized\|landscape\|jellybeans\|Tomorrow'
-            "let g:lightline.colorscheme = substitute(substitute(g:colors_name, '-', '_', 'g'), '256.*', '', '') .
-                        "\ (g:colors_name ==# 'solarized' ? '_' . &background : '')
-            "call lightline#init()
-            "call lightline#colorscheme()
-            "call lightline#update()
-        "endif
-    "catch
-    "endtry
-"endfunction
-
 function! s:lightline_update()
     if !exists('g:loaded_lightline')
         return
@@ -481,37 +437,6 @@ endfunction
 command! Light call ThemeLight()
 command! Dark call ThemeDark()
 
-"command! Light set background=light |
-"    \ colorscheme autumnleaf |
-"    \ let g:lightline.colorscheme = 'PaperColor' |
-"    \ let g:toggle_theme = 'light' |
-"    \ call s:lightline_update()
-"command! Dark set background=dark |
-"    \ colorscheme badwolf |
-"    \ let g:lightline.colorscheme = 'landscape' |
-"    \ let g:toggle_theme = 'dark' |
-"    \ call s:lightline_update()
-
-"if !exists('g:toggle_theme')
-"    if filereadable(expand('~/.theme'))
-"        let user_theme=system('cat ~/.theme')
-"        if user_theme=~'^light.\?$'
-"            :Light
-"        else
-"            :Dark
-"        endif
-"    elseif strftime("%H") >= 8 && strftime("%H") < 20
-"        :Light
-"    else
-"        :Dark
-"    endif
-"endif
-
-" fix broken markdown extension
-" autocmd BufNewFile,BufRead *.md set filetype=markdown
-"autocmd FileType pandoc setlocal tw=80 formatoptions+=t
-"autocmd FileType rmd setlocal tw=80 formatoptions+=t
-
 if filereadable(expand('~/.personal'))
     " notes.vim
     let g:notes_directories=['~/Dropbox/notes']
@@ -520,7 +445,6 @@ if filereadable(expand('~/.personal'))
     let g:notes_markdown_program='panopynotes.sh'
     let g:notes_unicode_enabled = 0
     let g:notes_smart_quotes = 0
-
 
     " markdown preview
     let g:instant_markdown_slow = 1
@@ -635,102 +559,20 @@ nnoremap <leader>tol :call Toggle("linebreak", "off", function("LinebreakModeOn"
     
 nnoremap <leader>ton :NERDTreeToggle<CR>
 
-" default colorscheme
-"if !has_key(g:toggles, 'theme')
-"    if filereadable(expand('~/.theme'))
-"        let user_theme=join(readfile(expand('~/.theme')), '\n')
-"        if user_theme=~'^light.\?$'
-"            :Light
-"        else
-"            :Dark
-"        endif
-"    elseif strftime("%H") >= 8 && strftime("%H") < 20
-"        :Light
-"    else
-"        :Dark
-"    endif
-"endif
-
-" theme watcher
-" TODO: check for existence of theme and entr
-"function! ThemeWatch()
-"    let g:theme_watch_job = jobstart("echo " . expand('~/.theme') . " | entr neovim-theme.py '" . v:servername . "' /_")
-"endfunction
-
-"call ThemeWatch()
-
-"if exists('v:servername')
-"    :NeomakeSh echo '~/.theme' | entr neovim-theme.py ${NVIM_LISTEN_ADDRESS} /_
-"endif
-
-
 " r devtools
 augroup rdev
     autocmd!
     autocmd FileType r,rmd nnoremap <buffer> <leader>rdl :RLoadPackage<CR>
     autocmd FileType r,rmd nnoremap <buffer> <leader>rdc :RCheckPackage<CR>
     autocmd FileType r,rmd nnoremap <buffer> <leader>rdt :RTestPackage<CR>
+    autocmd FileType r,rmd nnoremap <buffer> <leader>rdT :RTestFile<CR>
     autocmd FileType r,rmd nnoremap <buffer> <leader>rdd :RDocumentPackage<CR>
-    autocmd FileType r,rmd nnoremap <buffer> <leader>rdb :RBuildPackage<CR>
     autocmd FileType r,rmd nnoremap <buffer> <leader>rdi :RInstallPackage<CR>
+    autocmd FileType r,rmd nnoremap <buffer> <leader>rdb :RBuildPackage<CR>
 augroup END
-
-
-" test test test test test
-" test test test test test
-
-"" critic markup hacking time!
-"nnoremap <leader>ed :set operatorfunc=CMDelOperator<cr>g@
-"vnoremap <leader>ed :<c-u>call CMOperator(visualmode(),'<','>','{--','--}')<cr>
-"nnoremap <leader>ea :set operatorfunc=CMAddOperator<cr>g@
-"vnoremap <leader>ea :<c-u>call CMOperator(visualmode(),'<','>','{++','++}')<cr>
-"nnoremap <leader>eh :set operatorfunc=CMHilOperator<cr>g@
-"vnoremap <leader>eh :<c-u>call CMOperator(visualmode(),'<','>','{==','==}')<cr>
-"nnoremap <leader>ec :set operatorfunc=CMComOperator<cr>g@
-"vnoremap <leader>ec :<c-u>call CMOperator(visualmode(),'<','>','{>>','<<}')<cr>
-"nnoremap <leader>es :set operatorfunc=CMSubOperator<cr>g@
-"vnoremap <leader>es :<c-u>call CMOperator(visualmode(),'<','>','{~~','~>~~}')<cr>
-
-"function! CMDelOperator(type)
-"    call CMOperator(a:type,'[',']','{--','--}')
-"endfunction
-
-"function! CMAddOperator(type)
-"    call CMOperator(a:type,'[',']','{++','++}')
-"endfunction
-
-"function! CMHilOperator(type)
-"    call CMOperator(a:type,'[',']','{==','==}')
-"endfunction
-
-"function! CMComOperator(type)
-"    call CMOperator(a:type,'[',']','{>>','<<}')
-"endfunction
-
-"function! CMSubOperator(type)
-"    call CMOperator(a:type,'[',']','{~~','~>~~}')
-"endfunction
-
-"function! CMOperator(type, m0, m1, t0, t1)
-"    let pastem=&paste
-"    set paste
-
-"    if a:type ==# 'v' || a:type == 'char'
-"        silent exe "normal! `" . a:m0 . "v`" . a:m1 . "d"
-"        "silent exe "normal! i" . a:t0 . "\<esc>pa" . a:t1 . "\<esc>"
-"        silent exe "normal! i" . a:t0 . "\<esc>a". a:t1 . "\<esc>g`[P"
-"    elseif a:type ==# 'V' || a:type == 'line'
-"        silent exe "normal! `" . a:m0 . "V`" . a:m1 . "d"
-"        "silent exe "normal! O" . a:t0 . "\<esc>po" . a:t1 . "\<esc>"
-"        silent exe "normal! O" . a:t0 . "\<cr>" . a:t1 . "\<esc>P"
-"    endif
-
-"    let &paste=pastem
-"endfunction
 
 nnoremap ,r :source ~/.config/nvim/init.vim<CR>
 
-let g:lightline.colorscheme = 'landscape'
 let g:lightline.colorscheme = 'ambi16'
 call s:lightline_update()
 
