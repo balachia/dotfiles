@@ -6,6 +6,9 @@ vim.g.maplocalleader = ' '
 require('manager-lazy')
 
 -- [[ Configuration ]]
-require('options')          -- vim options/settings
-require('colorscheme')      -- load and set up colorscheme
-require('keymap')           -- set up keymap
+require('options')                  -- vim options/settings
+--require('colorscheme')              -- load and set up colorscheme
+require('keymap')                   -- set up keymap
+
+-- [[ Plugin Configuration ]]
+require('plug-config.treesitter-config')

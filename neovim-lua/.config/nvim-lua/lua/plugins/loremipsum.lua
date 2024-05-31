@@ -1,3 +1,4 @@
 return {
-    'vim-scripts/loremipsum'
+    'vim-scripts/loremipsum',
+    cmd = "Loremipsum"
 }
