@@ -5,16 +5,9 @@ return {
         "hrsh7th/cmp-buffer",   -- buffer auto-completion
         "hrsh7th/cmp-path",     -- path auto-completion
         "hrsh7th/cmp-cmdline",  -- cmdline auto-completion
-        "hrsh7th/cmp-nvim-lsp",  -- cmdline auto-completion
     },
     config = function()
-        require("cmp").setup({
-            sources = {
-                { name = "cmp_r" },
-                { name = "path" },
-                { name = "nvim_lsp" },
-            }
-        })
+        require("cmp").setup({ sources = {{ name = "cmp_r" }}})
         require("cmp_r").setup({ })
     end,
 }

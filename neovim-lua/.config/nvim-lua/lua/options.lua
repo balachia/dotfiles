@@ -11,6 +11,7 @@ vim.opt.laststatus = 2              -- keep status line up
 vim.opt.confirm = true              -- warn on operations requiring confirmation
 vim.opt.visualbell = true           -- use visual bell on alarms
 vim.opt.mouse = 'a'                 -- use mouse in all modes
+vim.opt.termguicolors = false       -- disable gui colors in terminal
 
 -- searching
 vim.opt.incsearch = true            -- search as characters are entered

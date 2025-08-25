@@ -17,4 +17,6 @@ vim.keymap.set('t', '<C-l>', '<cmd>wincmd l<CR>', opts)
 vim.keymap.set('n', '<leader>q', ':bp<bar>bd#<CR>', opts)
 
 -- Lazy oil opening
-vim.keymap.set('n', '-', ':Oil --float<CR>', opts)
+-- vim.keymap.set('n', '-', ':Oil --float<CR>', opts)
+vim.keymap.set('n', '<Leader>tto', ':NvimTreeFocus<CR>', opts)
+vim.keymap.set('n', '<Leader>ttc', ':NvimTreeClose<CR>', opts)

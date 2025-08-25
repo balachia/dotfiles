@@ -1,14 +1,14 @@
 return {
     {
         "nvim-treesitter/nvim-treesitter",
-        run = ":TSUpdate",
+        build = ":TSUpdate",
         config = function ()
             require("nvim-treesitter.configs").setup({
-                ensure_installed = { "markdown", "markdown_inline", "r", "rnoweb", "yaml", "latex" },
+                ensure_installed = { "markdown", "markdown_inline", "r", "rnoweb" },
                 highlight = { enable = true }
             })
         end
     },
     'nvim-treesitter/nvim-treesitter-textobjects',
-    'RRethy/nvim-treesitter-textsubjects'
+    'RRethy/nvim-treesitter-textsubjects',
 }
