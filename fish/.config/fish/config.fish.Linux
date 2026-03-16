@@ -7,13 +7,13 @@ if type -q ruby
 end
 
 # keychain
-if status --is-interactive
+if status --is-interactive; and type -q keychain; and test -f ~/.ssh/id_rsa
     keychain --quiet --noask id_rsa
-end
 
-begin
-    set -l HOSTNAME (hostname)
-    if test -f ~/.keychain/$HOSTNAME-fish
-        source ~/.keychain/$HOSTNAME-fish
+    begin
+        set -l HOSTNAME (hostname)
+        if test -f ~/.keychain/$HOSTNAME-fish
+            source ~/.keychain/$HOSTNAME-fish
+        end
     end
 end
