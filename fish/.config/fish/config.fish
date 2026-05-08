@@ -1,5 +1,5 @@
 # set paths
-set PATH /opt/local/bin ~/.local/bin /opt/homebrew/bin $PATH
+set PATH ~/.local/bin /opt/homebrew/bin $PATH
 
 # color theming
 if status --is-interactive
@@ -46,11 +46,8 @@ alias neomutt='env TERM=screen-256color neomutt'
 
 #[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
-# load nvm slow
-#nvm() {
-#    export NVM_DIR="/Users/avashevko/.nvm"
-#    [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"  # This loads nvm
-#}
+# node version manager
+fnm env | source
 
 #wd() {
 #  . $HOME/.local/src/wd/wd.sh
