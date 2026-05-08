@@ -1,4 +1,5 @@
-set -g status-right "#(battery -pte)#[default]|cpu #[fg=yellow]#(ps -A -o %%cpu | awk '{s+=$1} END {printf(\"%%.2f\",s/4)}')#[default]|#[fg=default]%H:%M#[default]"
+set -g status-right-length 80
+set -g status-right "#(~/.config/tmux/battery.sh)#[default]#(~/.config/tmux/claude-usage.sh)#[default]··#(~/.config/tmux/sysstat.sh)··#[fg=default]%H:%M#[default]"
 #set -g status-right '#(battery -pte) #[fg=yellow]#(sysctl -n vm.loadavg | cut -d " " -f 2-4)#[default] #[fg=default]%H:%M#[default]'
 #set -g status-right '#[fg=white]%H:%M#[default] #(battery -pte)'
 #set -g status-right '#[fg=white]%H:%M#[default]'
