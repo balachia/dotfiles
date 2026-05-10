@@ -1,0 +1,37 @@
+[user]
+	name = Tony Vashevko
+	email = avashevko@gmail.com
+
+[init]
+	defaultBranch = main
+
+[push]
+	default = simple
+
+[pull]
+	rebase = false
+
+# credential.helper is platform-specific:
+# - macOS: osxkeychain (Apple's Keychain)
+# - Linux: libsecret or store (per machine)
+# - Windows: wincred
+# Currently set for Mac; override per-machine if you bring this to Linux.
+[credential]
+	helper = osxkeychain
+
+[diff]
+	tool = nvimdiff
+[difftool]
+	prompt = true
+[difftool "nvimdiff"]
+	cmd = "nvim -d \"$LOCAL\" \"$REMOTE\""
+
+[merge]
+	tool = nvimdiff
+[mergetool]
+	prompt = true
+[mergetool "nvimdiff"]
+	cmd = nvim -d $BASE $LOCAL $REMOTE $MERGED -c '$wincmd w' -c 'wincmd J'
+
+[alias]
+	lgb = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset%n' --abbrev-commit --date=relative --branches
