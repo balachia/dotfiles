@@ -21,3 +21,20 @@ vim.opt.smartcase = true            -- case sensitive search if using uppercase
 
 -- shell
 vim.opt.shell = '/bin/sh'           -- set posix shell. nobody likes fish :(
+
+-- autoread: reload buffers when files change on disk (agents, git pulls, etc.)
+vim.opt.autoread = true
+vim.api.nvim_create_autocmd({"FocusGained", "BufEnter", "CursorHold", "CursorHoldI"}, {
+    pattern = "*",
+    callback = function()
+        if vim.fn.mode() ~= 'c' and vim.fn.getcmdwintype() == '' then
+            vim.cmd('checktime')
+        end
+    end,
+})
+vim.api.nvim_create_autocmd("FileChangedShellPost", {
+    pattern = "*",
+    callback = function()
+        vim.notify("File changed on disk. Buffer reloaded.", vim.log.levels.WARN)
+    end,
+})
