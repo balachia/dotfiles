@@ -4,5 +4,7 @@ TAGS
 # nvim Lazy lockfile — per-machine plugin pins, not portable
 lazy-lock.json
 
-# fish universal variables — per-machine state
+# fish per-machine state and noise
 fish_variables
+fishd.*
+*.bak
