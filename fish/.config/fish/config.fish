@@ -47,7 +47,7 @@ alias neomutt='env TERM=screen-256color neomutt'
 #[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
 # node version manager
-fnm env | source
+command -q fnm; and fnm env | source
 
 #wd() {
 #  . $HOME/.local/src/wd/wd.sh
