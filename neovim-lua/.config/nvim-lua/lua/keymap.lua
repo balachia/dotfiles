@@ -10,8 +10,8 @@ vim.keymap.set('t', '<C-j>', '<cmd>wincmd j<CR>', opts)
 vim.keymap.set('t', '<C-k>', '<cmd>wincmd k<CR>', opts)
 vim.keymap.set('t', '<C-l>', '<cmd>wincmd l<CR>', opts)
 
--- Turn off search
---vim.keymap.set('n', )
+-- Turn off search highlight (mnemonic: / searches, leader-/ unsearches)
+vim.keymap.set('n', '<leader>/', '<Cmd>nohlsearch<CR>', opts)
 
 -- Buffer close
 vim.keymap.set('n', '<leader>q', ':bp<bar>bd#<CR>', opts)
