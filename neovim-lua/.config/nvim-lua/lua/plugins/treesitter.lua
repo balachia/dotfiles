@@ -1,14 +1,20 @@
 return {
     {
         "nvim-treesitter/nvim-treesitter",
-        run = ":TSUpdate",
-        config = function ()
-            require("nvim-treesitter.configs").setup({
-                ensure_installed = { "markdown", "markdown_inline", "r", "rnoweb", "yaml", "latex" },
-                highlight = { enable = true }
+        branch = "main",
+        build = ":TSUpdate",
+        config = function()
+            require("nvim-treesitter").install({
+                "markdown", "markdown_inline", "r", "rnoweb",
+                "yaml", "latex", "lua", "vimdoc",
             })
-        end
+            vim.api.nvim_create_autocmd("FileType", {
+                callback = function(ev)
+                    pcall(vim.treesitter.start, ev.buf)
+                end,
+            })
+        end,
     },
-    'nvim-treesitter/nvim-treesitter-textobjects',
-    'RRethy/nvim-treesitter-textsubjects'
+    -- textsubjects: dead, incompatible with new treesitter
+    -- textobjects: config API changed, re-enable if needed
 }

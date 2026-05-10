@@ -24,5 +24,4 @@ return {
         end,
         lazy = false
     },
-    "R-nvim/cmp-r",
 }
