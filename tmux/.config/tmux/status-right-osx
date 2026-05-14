@@ -1,8 +1,8 @@
-set -g status-right-length 80
-set -g status-right "#(~/.config/tmux/battery.sh)#[default]#(~/.config/tmux/claude-usage.sh)#[default]··#(~/.config/tmux/sysstat.sh)··#[fg=default]%H:%M#[default]"
-#set -g status-right '#(battery -pte) #[fg=yellow]#(sysctl -n vm.loadavg | cut -d " " -f 2-4)#[default] #[fg=default]%H:%M#[default]'
-#set -g status-right '#[fg=white]%H:%M#[default] #(battery -pte)'
-#set -g status-right '#[fg=white]%H:%M#[default]'
-#set -g status-right '#(battery -pt)'
-#set -g status-right 'test #(battery -pt) test'
-#set -g status-right '#[fg=yellow]#(sysctl -n vm.loadavg | cut -d " " -f 2-4)#[default] #[fg=white]%H:%M#[default]'
+set -g status-right-length 100
+set -g status-right "#[fg=colour8]\
+#(~/.config/tmux/segments/claude-usage.sh)  \
+#(~/.config/tmux/segments/cpu.sh)  \
+#(~/.config/tmux/segments/mem.sh)  \
+#(~/.config/tmux/segments/gpu-osx.sh)  \
+#(~/.config/tmux/segments/energy-osx.sh)  \
+#[fg=colour1]%H:%M#[default]"

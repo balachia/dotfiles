@@ -1,22 +1,27 @@
 #!/usr/bin/env bash
-# Compact claude usage for tmux statusline — reads from cache, no API calls.
-#
-# Layout: ❋ <5h-time><5h-budget><wk-time><wk-budget>  (4 glyphs)
-#   5h time:   2-col braille rune; left col = hours elapsed (0-4),
-#              right col = quarter within current hour (0-3); ~15min/step
+# Compact Claude Code usage for tmux statusline.
+# Layout: ❋ <5h-time-rune><5h-budget-bar><wk-time-dots><wk-budget-bar>
+#   5h time:   2-col braille; left col = hours elapsed (0-4), right col =
+#              quarter of current hour (Q1..Q4 = 1..4 dots); ~15min/step
 #   5h budget: vertical eighth ▁..█; fuller = more remaining
-#   wk time:   1-7 braille dots = ceil(days remaining)
+#   wk time:   1-7 dots braille = ceil(days remaining)
 #   wk budget: vertical eighth; fuller = more remaining
-# Color (whole segment): default (ok), yellow (>75% used), red (>90% used)
-# on whichever budget is worse.
+# Self-suppress: silent if cache doesn't exist (Claude not installed/used here).
+
+source "$HOME/.config/tmux/theme.sh"
 
 CACHE="$HOME/.claude/cache/usage-scrape.txt"
 [ -f "$CACHE" ] || exit 0
 
-mod=$(stat -f %m "$CACHE" 2>/dev/null) || exit 0
+# Staleness: report >30min gap, then bail.
+case "$(uname)" in
+    Darwin) mod=$(stat -f %m "$CACHE" 2>/dev/null) ;;
+    *)      mod=$(stat -c %Y "$CACHE" 2>/dev/null) ;;
+esac
+[ -n "$mod" ] || exit 0
 now=$(date +%s)
 if [ $(( now - mod )) -gt 1800 ]; then
-    echo "❋ stale"
+    echo "${TM_WARN}❋ stale${TM_RESET}"
     exit 0
 fi
 
@@ -25,9 +30,7 @@ weekly=$(grep -A1 "Current week" "$CACHE" | head -2 | tail -1 | grep -oE '[0-9]+
 sess_reset=$(grep '^# session-reset:' "$CACHE" | awk '{print $3}')
 week_reset=$(grep '^# week-reset:' "$CACHE" | awk '{print $3}')
 
-# ── 5h time rune (2-col braille) ────────────────────────────────────────
-# 20-cell lookup, row = hours elapsed (0..4), col = quarter (Q1..Q4 = 1..4 dots)
-# Never blank: first 15min = ⢀, final 15min = ⣿
+# 5h time rune (2-col braille).
 runes=(
     $'⢀' $'⢠' $'⢰' $'⢸'
     $'⣀' $'⣠' $'⣰' $'⣸'
@@ -52,7 +55,7 @@ if [ -n "$sess_reset" ] && [ "$sess_reset" -gt 0 ] 2>/dev/null; then
     fi
 fi
 
-# ── weekly time dots (1-7 = ceil of days left) ──────────────────────────
+# Weekly time dots (1-7 = ceil of days left).
 wk_dots_chars=("⡀" "⣀" "⣄" "⣤" "⣦" "⣶" "⣾")
 wk_dots="${wk_dots_chars[0]}"
 if [ -n "$week_reset" ] && [ "$week_reset" -gt 0 ] 2>/dev/null; then
@@ -65,7 +68,7 @@ if [ -n "$week_reset" ] && [ "$week_reset" -gt 0 ] 2>/dev/null; then
     fi
 fi
 
-# ── budget bar: vertical eighth, fuller = more remaining ────────────────
+# Budget bars (vertical eighth, fuller = more remaining).
 bar_chars=("▁" "▂" "▃" "▄" "▅" "▆" "▇" "█")
 budget_bar() {
     local used=${1:-0}
@@ -80,17 +83,12 @@ budget_bar() {
 sess_bar=$(budget_bar "$session")
 wk_bar=$(budget_bar "$weekly")
 
-# ── color from worst budget % ───────────────────────────────────────────
+# Data color: warning-tiered on the worse of session/weekly utilization.
 worst=${session:-0}
-if [ "${weekly:-0}" -gt "$worst" ]; then
-    worst=${weekly:-0}
-fi
-if [ "$worst" -gt 90 ]; then
-    data_color="#[fg=colour1]"
-elif [ "$worst" -gt 75 ]; then
-    data_color="#[fg=colour3]"
-else
-    data_color="#[fg=colour8]"
+[ "${weekly:-0}" -gt "$worst" ] && worst=${weekly:-0}
+if [ "$worst" -gt 90 ]; then data_color="$TM_ALERT"
+elif [ "$worst" -gt 75 ]; then data_color="$TM_WARN"
+else data_color="$TM_BASELINE"
 fi
 
-echo "#[fg=colour3]❋ ${data_color}${time_rune}${sess_bar}${wk_dots}${wk_bar}"
+echo "${TM_WARN}❋ ${data_color}${time_rune}${sess_bar}${wk_dots}${wk_bar}${TM_RESET}"
