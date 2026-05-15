@@ -17,6 +17,8 @@ read -r mean max <<< "$(top -bn2 -d 0.5 -w 200 2>/dev/null | awk '
         for (i = 1; i <= NF; i++) if ($i == "%CPU") col = i
     }
     iter == 2 && /^ *[0-9]/ && col {
+        # Skip top itself — its own sampling work makes it the "worst process."
+        if ($NF == "top") next
         pct = $col + 0
         if (pct > 0.5) { sum += pct; n++; if (pct > max) max = pct }
     }
