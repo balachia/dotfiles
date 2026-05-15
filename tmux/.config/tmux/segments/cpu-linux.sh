@@ -17,8 +17,10 @@ read -r mean max <<< "$(top -bn2 -d 0.5 -w 200 2>/dev/null | awk '
         for (i = 1; i <= NF; i++) if ($i == "%CPU") col = i
     }
     iter == 2 && /^ *[0-9]/ && col {
-        # Skip top itself — its own sampling work makes it the "worst process."
-        if ($NF == "top") next
+        # Skip the first "top" — almost certainly our own sampling process
+        # (top sorts by %CPU desc, and during its 0.5s sample it's the busiest).
+        # Subsequent "top" processes (user-launched debug tops) count normally.
+        if ($NF == "top" && !top_skipped) { top_skipped = 1; next }
         pct = $col + 0
         if (pct > 0.5) { sum += pct; n++; if (pct > max) max = pct }
     }
