@@ -1,10 +1,2 @@
 set -g status-right-length 100
-set -g status-right "#[fg=colour8]\
-#(~/.config/tmux/segments/claude-usage.sh)  \
-#(~/.config/tmux/segments/cpu.sh)  \
-#(~/.config/tmux/segments/mem.sh)  \
-#[fg=colour1]%H:%M#[default]"
-# Linux platform-specific segments (gpu/energy) not yet written.
-# When a machine grows a GPU sensor or battery, add the segment script
-# under segments/ and reference it here. Self-suppression keeps shared
-# segments quiet on machines that lack the data source.
+set -g status-right "#[fg=colour8]#(~/.config/tmux/run-segments.sh)  #[fg=colour1]%H:%M#[default]"

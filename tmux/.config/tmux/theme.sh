@@ -13,7 +13,8 @@
 #
 # ── Color tiers (apply to data values; labels always TM_LABEL) ────────────
 
-TM_LABEL="#[fg=colour1]"                          # red — domain/unit labels
+TM_LABEL="#[fg=colour1]"                          # red — domain markers (ᶜ ᵐ ᵍ ᵖ)
+TM_UNIT="#[fg=colour0]"                           # cyan — unit symbols (ʷ ᶜ-celsius %)
 TM_BASELINE="#[fg=colour8]"                       # dim — normal data
 TM_WARN="#[fg=colour3]"                           # yellow — elevated
 TM_WARN_HI="#[fg=colour11]"                       # bright yellow — high

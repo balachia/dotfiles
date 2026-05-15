@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
-# CPU load (mean/max across active processes) + optional temperature.
-# Universal: ps works on macOS + Linux. Temp source varies by platform:
-#   macOS: macmon daemon's cpu_temp_avg in /tmp/macmon.json
-#   Linux: /sys/class/thermal/thermal_zone0/temp (millidegrees)
-# Temp silently omitted if no source available.
+# CPU load (mean/max across active processes) + temperature.
+# macOS-specific: BSD `ps` semantics + macmon-daemon for temp.
 
 source "$HOME/.config/tmux/theme.sh"
 
@@ -17,7 +14,7 @@ elif [ "${mean_load:-0}" -gt 25 ]; then load_color="$TM_WARN"
 else load_color="$TM_BASELINE"
 fi
 
-# Temperature (optional).
+# CPU temp from macmon daemon (graceful skip if not running).
 temp=""
 if [ -r /tmp/macmon.json ]; then
     temp=$(/usr/bin/python3 -c '
@@ -27,8 +24,6 @@ try:
 except Exception:
     sys.exit(0)
 ' 2>/dev/null)
-elif [ -r /sys/class/thermal/thermal_zone0/temp ]; then
-    temp=$(( $(cat /sys/class/thermal/thermal_zone0/temp) / 1000 ))
 fi
 
 temp_seg=""
@@ -37,7 +32,7 @@ if [ -n "$temp" ] && [ "$temp" -gt 0 ] 2>/dev/null; then
     elif [ "$temp" -ge 70 ]; then tc="$TM_WARN"
     else tc="$TM_BASELINE"
     fi
-    temp_seg=" ${tc}${temp}${TM_LABEL}ᶜ"
+    temp_seg=" ${tc}${temp}${TM_UNIT}ᶜ"
 fi
 
-echo "${TM_LABEL}ᶜ${load_color}${mean_load}/${max_load}${temp_seg}${TM_RESET}"
+echo "${TM_LABEL}ᶜ${load_color}${mean_load}/${max_load}${TM_UNIT}%${temp_seg}${TM_RESET}"

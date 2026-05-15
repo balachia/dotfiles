@@ -1,8 +1,2 @@
 set -g status-right-length 100
-set -g status-right "#[fg=colour8]\
-#(~/.config/tmux/segments/claude-usage.sh)  \
-#(~/.config/tmux/segments/cpu.sh)  \
-#(~/.config/tmux/segments/mem.sh)  \
-#(~/.config/tmux/segments/gpu-osx.sh)  \
-#(~/.config/tmux/segments/energy-osx.sh)  \
-#[fg=colour1]%H:%M#[default]"
+set -g status-right "#[fg=colour8]#(~/.config/tmux/run-segments.sh)  #[fg=colour1]%H:%M#[default]"

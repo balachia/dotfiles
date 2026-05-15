@@ -40,13 +40,13 @@ PY
         throttle="${TM_THROTTLE_WARN}ᵗ${TM_RESET}${pwr_color}"
     fi
 
-    power="${TM_LABEL}ᵖ${throttle}${pwr_color}${sys_power}${TM_LABEL}ʷ"
+    power="${TM_LABEL}ᵖ${throttle}${pwr_color}${sys_power}${TM_UNIT}ʷ"
 fi
 
 # ── Battery from pmset (only if on a machine that has one) ──────────────
 batt=""
 if command -v pmset >/dev/null 2>&1; then
-    batt=$(pmset -g batt | awk -v ac="$TM_BATTERY_AC" -v dc="$TM_BATTERY_DC" -v base="$TM_BASELINE" '
+    batt=$(pmset -g batt | awk -v ac="$TM_BATTERY_AC" -v dc="$TM_BATTERY_DC" -v base="$TM_BASELINE" -v unit="$TM_UNIT" '
 NR==1 {
     if (/AC Power/) { color = ac; arrow = "△" }
     else            { color = dc; arrow = "▽" }
@@ -55,7 +55,7 @@ NR==1 {
     for (i=1; i<=NF; i++) if ($i ~ /%/) { gsub(/[;%]/, "", $i); pct = $i }
 }
 END {
-    if (pct != "") printf "%s%s%s%s", color, arrow, base, pct
+    if (pct != "") printf "%s%s%s%s%s%%", color, arrow, base, pct, unit
 }
 ')
 fi

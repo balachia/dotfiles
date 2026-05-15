@@ -28,4 +28,4 @@ elif [ "${gtemp:-0}" -ge 70 ]; then tc="$TM_WARN"
 else tc="$TM_BASELINE"
 fi
 
-echo "${TM_LABEL}ᵍ${lc}${gload} ${tc}${gtemp}${TM_LABEL}ᶜ ${TM_BASELINE}${gwatts}${TM_LABEL}ʷ${TM_RESET}"
+echo "${TM_LABEL}ᵍ${lc}${gload}${TM_UNIT}% ${tc}${gtemp}${TM_UNIT}ᶜ${TM_RESET}"
