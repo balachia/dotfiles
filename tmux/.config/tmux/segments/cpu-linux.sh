@@ -35,12 +35,19 @@ elif [ "$mean" -gt 25 ]; then load_color="$TM_WARN"
 else                          load_color="$TM_BASELINE"
 fi
 
-# Temperature from thermal_zone (millidegrees C). May not be the CPU
-# sensor on every machine — refine per-host if needed.
+# CPU temp via hwmon-by-driver-name. thermal_zone0 is registration-order
+# and often resolves to acpitz, which is a useless chassis reading. The
+# canonical CPU sensor is k10temp/temp1_input = Tctl on AMD, or
+# coretemp/temp1_input = package on Intel.
 temp=""
-if [ -r /sys/class/thermal/thermal_zone0/temp ]; then
-    temp=$(( $(cat /sys/class/thermal/thermal_zone0/temp) / 1000 ))
-fi
+for h in /sys/class/hwmon/hwmon*; do
+    case "$(cat "$h/name" 2>/dev/null)" in
+        k10temp|coretemp)
+            t=$(cat "$h/temp1_input" 2>/dev/null)
+            [ -n "$t" ] && { temp=$(( t / 1000 )); break; }
+            ;;
+    esac
+done
 
 temp_seg=""
 if [ -n "$temp" ] && [ "$temp" -gt 0 ] 2>/dev/null; then
