@@ -1,5 +1,5 @@
-# set paths
-set PATH ~/.local/bin /opt/homebrew/bin $PATH
+# PATH for ~/.local/bin and /opt/homebrew/bin is set in conf.d/00-path.fish
+# so it runs before other conf.d/*.fish (which load before config.fish).
 
 # color theming
 if status --is-interactive
