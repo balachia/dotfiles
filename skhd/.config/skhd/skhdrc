@@ -1,0 +1,10 @@
+# skhd hotkeys
+# ------------
+# Global hotkeys (work from anywhere, not just inside a kitty pane). Use
+# absolute paths since skhd doesn't search a user PATH.
+#
+# Key codes: 0x29 = `;`, 0x27 = `'`
+
+# ansil16 palette switch  (external invocation via --kitty-socket protocol)
+cmd + shift - 0x29 : $HOME/.local/bin/ansil16 set dark  -s   # cmd+shift+;
+cmd + shift - 0x27 : $HOME/.local/bin/ansil16 set light -s   # cmd+shift+'
