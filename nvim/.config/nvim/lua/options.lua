@@ -19,6 +19,11 @@ vim.opt.hlsearch = true             -- highlight searches
 vim.opt.ignorecase = true           -- ignore case in search by default
 vim.opt.smartcase = true            -- case sensitive search if using uppercase
 
+-- wrapping (soft, display-only — never inserts newlines)
+vim.opt.wrap = true                 -- visually wrap long lines (default on)
+vim.opt.linebreak = true            -- break at word boundaries, not mid-word
+vim.opt.breakindent = true          -- wrapped lines keep their indent
+
 -- shell
 vim.opt.shell = '/bin/sh'           -- set posix shell. nobody likes fish :(
 

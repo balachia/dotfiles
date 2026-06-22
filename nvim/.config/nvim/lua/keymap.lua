@@ -16,7 +16,15 @@ vim.keymap.set('n', '<leader>/', '<Cmd>nohlsearch<CR>', opts)
 -- Buffer close
 vim.keymap.set('n', '<leader>q', ':bp<bar>bd#<CR>', opts)
 
--- Lazy oil opening
--- vim.keymap.set('n', '-', ':Oil --float<CR>', opts)
+-- Oil: open parent directory as an editable buffer
+vim.keymap.set('n', '-', '<Cmd>Oil<CR>', opts)
 vim.keymap.set('n', '<Leader>tto', ':NvimTreeFocus<CR>', opts)
 vim.keymap.set('n', '<Leader>ttc', ':NvimTreeClose<CR>', opts)
+
+-- Center the buffer for distraction-free reading/writing (toggle)
+vim.keymap.set('n', '<Leader>z', '<Cmd>NoNeckPain<CR>', opts)
+
+-- Move by visual line when no count is given (nice with wrap + linebreak),
+-- but keep numbered jumps (e.g. 5j) and relativenumber motions intact.
+vim.keymap.set({ 'n', 'x' }, 'j', "v:count == 0 ? 'gj' : 'j'", { expr = true, silent = true })
+vim.keymap.set({ 'n', 'x' }, 'k', "v:count == 0 ? 'gk' : 'k'", { expr = true, silent = true })
