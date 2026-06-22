@@ -33,7 +33,7 @@ vim.opt.splitkeep = 'screen'        -- text stays in place when opening/closing 
 vim.opt.inccommand = 'split'        -- preview :s/foo/bar matches in a split
 vim.opt.scrolloff = 8               -- keep 8 lines visible above/below cursor
 vim.opt.smoothscroll = true         -- smooth scroll on wrapped lines
-vim.opt.cursorline = true           -- highlight current line
+vim.opt.cursorline = false          -- off: relativenumber gutter already marks the current line
 
 -- autoread: reload buffers when files change on disk (agents, git pulls, etc.)
 vim.opt.autoread = true

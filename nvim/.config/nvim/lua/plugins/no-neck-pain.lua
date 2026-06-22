@@ -4,6 +4,6 @@ return {
     'shortcuts/no-neck-pain.nvim',
     cmd = 'NoNeckPain',
     opts = {
-        width = 80,
+        width = 100,
     },
 }
