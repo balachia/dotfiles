@@ -74,11 +74,11 @@ if [ -n "$rl5" ] && [ -n "$rl7" ]; then rl_seg="$rl5 $rl7"
 else rl_seg="${rl5}${rl7}"; fi
 
 # Build the line
-printf "${GREEN}%s${RESET}@${CYAN}%s${RESET}" "$user" "$host"
-
 if [ -n "$rl_seg" ]; then
-    printf " | %s" "$rl_seg"
+    printf "%s | " "$rl_seg"
 fi
+
+printf "${GREEN}%s${RESET}@${CYAN}%s${RESET}" "$user" "$host"
 
 if [ -n "$model" ]; then
     if [ -n "$effort" ]; then
