@@ -67,11 +67,18 @@ if [ -n "$rl7_reset" ]; then
     rl7=$(printf '%dd' "$(( r / 86400 ))")
 fi
 [ -n "$rl7_pct" ] && rl7=$(printf '%s %.0f%%' "$rl7" "$rl7_pct")
-if [ -n "$rl5" ] && [ -n "$rl7" ]; then rl_seg="$rl5, $rl7"
+# color each window by domain: 5h → palette 11, 7d → palette 12 (theme-aware)
+[ -n "$rl5" ] && rl5=$(printf '\033[38;5;11m%s\033[0m' "$rl5")
+[ -n "$rl7" ] && rl7=$(printf '\033[38;5;12m%s\033[0m' "$rl7")
+if [ -n "$rl5" ] && [ -n "$rl7" ]; then rl_seg="$rl5 $rl7"
 else rl_seg="${rl5}${rl7}"; fi
 
 # Build the line
 printf "${GREEN}%s${RESET}@${CYAN}%s${RESET}" "$user" "$host"
+
+if [ -n "$rl_seg" ]; then
+    printf " | %s" "$rl_seg"
+fi
 
 if [ -n "$model" ]; then
     if [ -n "$effort" ]; then
@@ -83,8 +90,4 @@ fi
 
 if [ -n "$ctx_seg" ]; then
     printf " | %s" "$ctx_seg"
-fi
-
-if [ -n "$rl_seg" ]; then
-    printf " | %s" "$rl_seg"
 fi
