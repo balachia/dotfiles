@@ -1,35 +1,26 @@
 #!/usr/bin/env bash
 # Claude Code statusLine command
-# Mirrors the fish prompt style: user@host cwd [vcs-style info] [model] [ctx%]
+# Layout: user@host | model ·effort | context meter (w/ $cost) | 5h/7d budget
 # Colors are intentionally dim-friendly (ANSI, no bold) since CC dims the status line.
 
 input=$(cat)
 
 user=$(whoami)
 host=$(hostname -s)
-cwd=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // empty')
-# Abbreviate home directory like fish's prompt_pwd
-cwd="${cwd/#$HOME/\~}"
-
 model=$(echo "$input" | jq -r '.model.display_name // empty')
 effort=$(echo "$input" | jq -r '.effort.level // empty')
 ctx_used=$(echo "$input" | jq -r '.context_window.total_input_tokens // empty')
 ctx_size=$(echo "$input" | jq -r '.context_window.context_window_size // empty')
 cost=$(echo "$input" | jq -r '.cost.total_cost_usd // empty')
-
-# Git branch (skip optional locks)
-branch=""
-if git -C "${cwd/#\~/$HOME}" --no-optional-locks rev-parse --is-inside-work-tree 2>/dev/null | grep -q true; then
-    branch=$(git -C "${cwd/#\~/$HOME}" --no-optional-locks symbolic-ref --short HEAD 2>/dev/null \
-             || git -C "${cwd/#\~/$HOME}" --no-optional-locks rev-parse --short HEAD 2>/dev/null)
-fi
+rl5_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
+rl5_reset=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
+rl7_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
+rl7_reset=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
 
 # ANSI colors (work well in dimmed terminal status lines)
 GREEN='\033[32m'
 CYAN='\033[36m'
-BLUE='\033[34m'
 YELLOW='\033[33m'
-RED='\033[31m'
 RESET='\033[0m'
 
 # Context meter: a fixed-width field whose background fills left->right in proportion
@@ -62,12 +53,25 @@ if [ -n "$ctx_used" ] && [ -n "$ctx_size" ] && [ "$ctx_size" -gt 0 ]; then
     ctx_seg=$(printf '\033[48;5;7;38;5;0m%s\033[48;5;0;38;5;7m%s\033[0m' "$left" "$right")
 fi
 
-# Build the line
-printf "${GREEN}%s${RESET}@${CYAN}%s${RESET} ${BLUE}%s${RESET}" "$user" "$host" "$cwd"
-
-if [ -n "$branch" ]; then
-    printf " ${YELLOW}(%s)${RESET}" "$branch"
+# Rate-limit segment (terse): "h:mm XX%, Nd XX%" — 5h reset countdown + used %, then
+# days-to-7d-reset + used %. resets_at are unix epoch seconds; recomputed each render.
+now=$(date +%s)
+rl5=""; rl7=""
+if [ -n "$rl5_reset" ]; then
+    r=$(( rl5_reset - now )); [ "$r" -lt 0 ] && r=0
+    rl5=$(printf '%d:%02d' "$(( r / 3600 ))" "$(( (r % 3600) / 60 ))")
 fi
+[ -n "$rl5_pct" ] && rl5=$(printf '%s %.0f%%' "$rl5" "$rl5_pct")
+if [ -n "$rl7_reset" ]; then
+    r=$(( rl7_reset - now )); [ "$r" -lt 0 ] && r=0
+    rl7=$(printf '%dd' "$(( r / 86400 ))")
+fi
+[ -n "$rl7_pct" ] && rl7=$(printf '%s %.0f%%' "$rl7" "$rl7_pct")
+if [ -n "$rl5" ] && [ -n "$rl7" ]; then rl_seg="$rl5, $rl7"
+else rl_seg="${rl5}${rl7}"; fi
+
+# Build the line
+printf "${GREEN}%s${RESET}@${CYAN}%s${RESET}" "$user" "$host"
 
 if [ -n "$model" ]; then
     if [ -n "$effort" ]; then
@@ -79,4 +83,8 @@ fi
 
 if [ -n "$ctx_seg" ]; then
     printf " | %s" "$ctx_seg"
+fi
+
+if [ -n "$rl_seg" ]; then
+    printf " | %s" "$rl_seg"
 fi
