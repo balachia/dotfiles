@@ -8,8 +8,8 @@ Styles:
   garden  leaves on the wind over grass and flowers, drawn as one
           window-wide scene: leaves blow behind the center pane and come
           out the other side.
-  coffee  a table across both panels: a steaming mug on one side, a green
-          banker's lamp with moths on the other (side picked at random per
+  coffee  a table across both panels: a steaming mug with the hostname on
+          it on one side, a green banker's lamp with moths on the other (side picked at random per
           toggle). The coffee goes cold after 45 minutes.
   matrix  green falling-glyph rain.
   sysrain matrix rain that reveals live system activity planted in the
@@ -250,28 +250,34 @@ CLOUD = ["   .--.    ", ".-(    ).  ", "(___.__)__)"]
 
 # ---------------------------------------------------------------- coffee
 
-MUG = [
-    " ___________",
-    "|~~~~~~~~~~~|__",
-    "|           |  |",
-    "|           |  |",
-    "|           |__|",
-    " \\_________/",
-]
 STEAM_GLYPHS = "()~'."
+# printed on the mug; USER / HOST are filled in (bold red). Tried in order
+# until one fits the mug.
+MUG_SLOGANS = [
+    ["don't talk to", "USER", "until i've had my morning", "HOST"],
+    ["don't talk to", "USER", "until i've had", "my morning", "HOST"],
+    ["HOST"],
+]
 COLD_AFTER = 45 * 60  # the coffee stops steaming after 45 minutes
 
 
+def clamp(v, lo, hi):
+    return max(lo, min(hi, v))
+
+
 class Coffee:
-    """A table across both panels; a steaming mug on one side and a green
-    banker's lamp (with moths) on the other. ZEN_SEED, shared by both spacers,
-    picks which side gets the mug."""
+    """A table across both panels; a steaming mug (with the hostname on it)
+    on one side and a green banker's lamp (with moths) on the other. The mug
+    keeps real-mug proportions; the lamp scales with the panel. ZEN_SEED, shared by both spacers, picks which side
+    gets the mug."""
     fps = 8
 
     def __init__(self, s, side):
         self.s = s
         seed = int(os.environ.get("ZEN_SEED", "0") or 0)
         self.mug = side == ("left" if seed % 2 == 0 else "right")
+        self.name = " ".join(socket.gethostname().split(".")[0].upper())
+        self.user = " ".join(getpass.getuser().upper())
         self.rng = random.Random()
         self.start = time.time()
         self.steam = []  # [x, y, age, phase]
@@ -282,6 +288,29 @@ class Coffee:
         h, w = self.s.h, self.s.w
         self.table_y = h - 4 if h >= 14 else h - 1
         self.cx = w // 2
+        # mug: a fixed, real-mug size (fits the slogan); terminal cells are
+        # ~2:1, so a mug about as tall as it is wide is ~0.45 rows per column.
+        # Only shrinks when the panel is too narrow.
+        widest = max(len(l) for l in self.slogan(MUG_SLOGANS[0])) + 6
+        self.mw = clamp(widest, len(self.name) + 4, max(10, w - 6))
+        self.mh = max(7, round(self.mw * 0.45))
+        # lamp
+        self.sw = clamp(w * 3 // 5, 15, 35) | 1
+        self.lh = clamp(h * 9 // 20, 10, 24)
+
+    def slogan(self, lines):
+        return [self.user if l == "USER" else self.name if l == "HOST" else l for l in lines]
+
+    def mug_art(self):
+        mw, mh = self.mw, self.mh
+        rows = [" " + "_" * (mw - 2), "|" + "~" * (mw - 2) + "|"]
+        body = mh - 4
+        h0, h1 = 0, max(2, body * 2 // 3)  # handle spans these body rows
+        for i in range(body):
+            handle = "__" if i == h0 else ("__|" if i == h1 else ("  |" if h0 < i < h1 else ""))
+            rows.append("|" + " " * (mw - 2) + "|" + handle)
+        rows.append(" \\" + "_" * (mw - 4) + "/")
+        return rows
 
     def art(self, y, x, lines, color, attr=0):
         for i, line in enumerate(lines):
@@ -305,56 +334,75 @@ class Coffee:
             self.frame_lamp(now)
 
     def frame_mug(self, now, dt):
-        s, ty = self.s, self.table_y
-        mx = self.cx - 7
-        top = ty - len(MUG) + 1
-        self.art(top, mx, MUG, curses.COLOR_WHITE, curses.A_BOLD)
-        for j in range(1, 12):
+        s, ty, mw = self.s, self.table_y, self.mw
+        art = self.mug_art()
+        mx = self.cx - (mw + 3) // 2
+        top = ty - len(art)  # leaves the table row for the saucer
+        # saucer
+        s.put(ty, mx - 3, "\\" + "_" * (mw + 6) + "/", curses.COLOR_WHITE, curses.A_BOLD)
+        self.art(top, mx, art, curses.COLOR_WHITE, curses.A_BOLD)
+        for j in range(1, mw - 1):
             s.put(top + 1, mx + j, "~", curses.COLOR_YELLOW)  # the coffee
+        # printed on the mug: the first slogan that fits
+        for slogan in MUG_SLOGANS:
+            lines = self.slogan(slogan)
+            if max(map(len, lines)) <= mw - 4 and len(lines) <= len(art) - 3:
+                break
+        y = top + 2 + (len(art) - 3 - len(lines)) // 2
+        for i, (line, raw) in enumerate(zip(lines, slogan)):
+            loud = raw in ("USER", "HOST")
+            s.put(y + i, mx + (mw - len(line)) // 2, line,
+                  curses.COLOR_RED if loud else curses.COLOR_WHITE, curses.A_BOLD if loud else 0)
 
         warmth = max(0.0, 1 - (now - self.start) / COLD_AFTER)
-        if self.rng.random() < 0.9 * warmth:
-            self.steam.append([mx + self.rng.uniform(2, 10), top - 0.5, 0.0, self.rng.uniform(0, 6.28)])
+        if self.rng.random() < (0.6 + mw / 25) * warmth:
+            self.steam.append([mx + self.rng.uniform(2, mw - 2), top - 0.5, 0.0, self.rng.uniform(0, 6.28)])
         for p in self.steam:
             p[2] += dt
             p[1] -= 1.6 * dt
-        self.steam = [p for p in self.steam if p[2] < 6]
+        life = 4 + self.mh / 3
+        self.steam = [p for p in self.steam if p[2] < life]
         for x, y, age, phase in self.steam:
             wx = x + 1.5 * math.sin(age * 1.8 + phase) + 0.5 * age
-            attr = curses.A_BOLD if age < 1.5 else (0 if age < 3.5 else curses.A_DIM)
+            attr = curses.A_BOLD if age < life * 0.25 else (0 if age < life * 0.6 else curses.A_DIM)
             s.put(int(y), int(wx), STEAM_GLYPHS[int(age * 2 + phase) % len(STEAM_GLYPHS)], curses.COLOR_WHITE, attr)
 
     def frame_lamp(self, now):
-        s, ty, cx = self.s, self.table_y, self.cx
-        y0 = max(1, ty - 14)  # top of the shade
+        s, ty, cx, sw = self.s, self.table_y, self.cx, self.sw
+        y0 = max(1, ty - self.lh)  # top of the shade
+        half0 = sw // 2 - 1
 
         # light cone: shimmering dots spreading down to a lit pool on the table
         for y in range(y0 + 3, ty):
-            half = 9 + (y - y0 - 3) * 0.9
+            half = half0 + (y - y0 - 3) * 0.9
             for x in range(int(cx - half), int(cx + half) + 1):
                 if self.rng.random() < 0.07:
                     s.put(y, x, self.rng.choice(".,'`"), curses.COLOR_YELLOW, curses.A_DIM)
-        half = 9 + (ty - y0 - 3) * 0.9
+        half = half0 + (ty - y0 - 3) * 0.9
         for x in range(int(cx - half), int(cx + half) + 1):
             s.put(ty, x, "_", curses.COLOR_YELLOW, curses.A_BOLD)
 
         # shade (green glass), brass stem, base, swinging pull chain
-        s.put(y0, cx - 8, "_" * 17, curses.COLOR_GREEN, curses.A_BOLD)
-        s.put(y0 + 1, cx - 9, "/" + "=" * 17 + "\\", curses.COLOR_GREEN, curses.A_BOLD)
-        s.put(y0 + 2, cx - 10, "/" + "_" * 19 + "\\", curses.COLOR_GREEN, curses.A_BOLD)
-        for y in range(y0 + 3, ty - 1):
+        s.put(y0, cx - (sw - 4) // 2, "_" * (sw - 4), curses.COLOR_GREEN, curses.A_BOLD)
+        s.put(y0 + 1, cx - (sw - 2) // 2, "/" + "=" * (sw - 4) + "\\", curses.COLOR_GREEN, curses.A_BOLD)
+        s.put(y0 + 2, cx - sw // 2, "/" + "_" * (sw - 2) + "\\", curses.COLOR_GREEN, curses.A_BOLD)
+        for y in range(y0 + 3, ty - 2):
             s.put(y, cx - 1, "||", curses.COLOR_YELLOW, curses.A_BOLD)
-        s.put(ty - 1, cx - 7, "(____||_____)", curses.COLOR_YELLOW, curses.A_BOLD)
+        bw = sw * 3 // 5
+        s.put(ty - 2, cx - bw // 2, "_" * (bw // 2 - 1) + "||" + "_" * (bw - bw // 2 - 1), curses.COLOR_YELLOW, curses.A_BOLD)
+        s.put(ty - 1, cx - bw // 2 - 1, "(" + "_" * bw + ")", curses.COLOR_YELLOW, curses.A_BOLD)
+        chain_x = cx + sw // 4
         sway = int(round(math.sin(now * 1.1)))
-        for i in range(3):
-            s.put(y0 + 3 + i, cx + 5 + (sway if i == 2 else 0), ":", curses.COLOR_YELLOW)
-        s.put(y0 + 6, cx + 5 + sway, "o", curses.COLOR_YELLOW, curses.A_BOLD)
+        links = max(3, self.lh // 4)
+        for i in range(links):
+            s.put(y0 + 3 + i, chain_x + (sway if i == links - 1 else 0), ":", curses.COLOR_YELLOW)
+        s.put(y0 + 3 + links, chain_x + sway, "o", curses.COLOR_YELLOW, curses.A_BOLD)
 
         # moths, drawn to the light
         for k in (1, 2):
-            mx = cx + 12 * math.sin(now * 0.7 * k + k) + 3 * math.sin(now * 2.9 + 2 * k)
+            mx = cx + (sw * 0.7) * math.sin(now * 0.7 * k + k) + 3 * math.sin(now * 2.9 + 2 * k)
             my = y0 + 1 + 2.5 * math.sin(now * 1.1 * k + 3 * k) + math.sin(now * 3.7 + k)
-            s.put(int(my), int(mx), "\u0436" if int(now * 6 + k) % 2 else "x", curses.COLOR_WHITE)  # ж
+            s.put(int(my), int(mx), "ж" if int(now * 6 + k) % 2 else "x", curses.COLOR_WHITE)  # ж
 
 
 # ---------------------------------------------------------------- matrix
@@ -507,7 +555,7 @@ class Sampler:
     PERIOD = 2.0
 
     def __init__(self):
-        self.queue = collections.deque(maxlen=400)
+        self.queue = collections.deque(maxlen=60)  # small: stays current, backlog = pressure
         self.stats = {}  # category -> short string for the footer
         self.prev_ticks, self.prev_rss, self.prev_net = {}, {}, None
         self.ncpu = os.cpu_count() or 1
@@ -608,14 +656,17 @@ class Sampler:
         dt = self.PERIOD
         procs = self.procs(dt)
 
-        # cpu: each busy process drips its name, ~1 token per 25% of a core
+        # cpu: processes drip their names at an average of 1 token per 50% of
+        # a core per sample (fractions are rolled), max 3, so a process idling
+        # at 15% shows up every few samples and a pegged one every sample
         cpu_total = sum(c for _, c, _ in procs) / self.ncpu
-        for name, cpu, _ in procs:
-            if cpu >= 2:
-                q.extend([("cpu", name)] * max(1, round(cpu / 25)))
+        for name, cpu, _ in sorted(procs, key=lambda p: -p[1])[:8]:
+            n = cpu / 50
+            n = int(n) + (rng.random() < n - int(n))
+            q.extend([("cpu", name)] * min(3, n))
         self.stats["cpu"] = f"{cpu_total:.0f}%"
 
-        # mem: processes that grew, plus big residents in proportion to pressure
+        # mem: processes that grew, plus big residents once pressure passes 50%
         pressure = self.mem_pressure()
         rss = {name: r for name, _, r in procs}
         for name, r in rss.items():
@@ -624,17 +675,17 @@ class Sampler:
                 q.append(("mem", f"{name} +{human(grew)}"))
         self.prev_rss = rss
         big = sorted(procs, key=lambda p: -p[2])[:12]
-        for _ in range(round(pressure * 6)):
+        for _ in range(round(max(0.0, pressure - 0.5) * 12)):  # only under real pressure
             name, _, r = rng.choice(big)
             q.append(("mem", f"{name} {human(r)}"))
         self.stats["mem"] = f"{pressure * 100:.0f}%"
 
-        # net: throughput sets how many tokens; live peers are what they say
+        # net: throughput sets how many tokens (log scale); live peers are what they say
         nb = self.net_bytes()
         rate = 0 if self.prev_net is None else max(0, nb - self.prev_net) / dt
         self.prev_net = nb
         peers = self.peers()
-        for _ in range(round(math.log10(1 + rate / 1024) * 2)):
+        for _ in range(round(math.log10(1 + rate / 50e3) * 2)):  # ~0 below 50K/s, 3 at 1M/s
             q.append(("net", rng.choice(peers) if peers else f"{human(rate)}/s"))
         self.stats["net"] = f"{human(rate)}/s"
 
@@ -645,16 +696,20 @@ class Sampler:
             self.stats["gpu"] = f"{g}%"
 
 
+MAX_WORDS_PER_SEC = 2.5
+
+
 class SysRain:
     """Matrix rain over a grid of system activity. Like the film, glyphs sit
     still and falling drops light them up. Every bit of activity becomes a
-    token in a queue; each token is planted into the grid as a vertical word
-    at a random spot (for WORD_LIFE seconds) and a drop is sent down that
-    column to reveal it. Planting rate tracks queue size, so density is
+    token in a queue; each token is planted into the grid as a horizontal word
+    at a random spot (for WORD_LIFE seconds) and a shower of drops, one per
+    letter, falls through it; revealed words glow for GLOW seconds. Planting rate tracks queue size, so density is
     pressure. Revealed words: cpu red, mem cyan, net yellow, gpu magenta;
     plain katakana is ambient."""
     fps = 12
     WORD_LIFE = 30.0
+    GLOW = 4.0  # seconds a revealed word stays lit
 
     def __init__(self, s, side):
         self.s = s
@@ -667,24 +722,33 @@ class SysRain:
 
     def resize(self):
         s, rng = self.s, self.rng
-        # each cell: [glyph, color or None, expiry]
-        self.cells = [[[rng.choice(GLYPHS), None, 0.0] for _ in range(s.w)] for _ in range(s.h)]
+        # each cell: [glyph, color or None, expiry, glow_until]
+        self.cells = [[[rng.choice(GLYPHS), None, 0.0, 0.0] for _ in range(s.w)] for _ in range(s.h)]
 
     def plant(self, now, cat, text):
+        """Write the token horizontally at a random spot and send a shower --
+        one drop per letter, slightly staggered -- down through it."""
         s, rng = self.s, self.rng
-        text = text[: s.h - 2]
-        x, y0 = rng.randrange(s.w), rng.randrange(0, max(1, s.h - 1 - len(text)))
+        text = text[: s.w]
+        for _ in range(8):  # find a spot that doesn't overwrite a live word
+            x0, y = rng.randrange(0, max(1, s.w - len(text) + 1)), rng.randrange(0, max(1, s.h - 1))
+            row = self.cells[y][x0:x0 + len(text)]
+            if all(c[1] is None or c[2] < now for c in row):
+                break
+        else:
+            return
+        start, speed = float(-rng.randint(2, 8)), rng.uniform(7, 11)
         for i, ch in enumerate(text):
-            self.cells[y0 + i][x] = [ch, SYS_COLORS[cat], now + self.WORD_LIFE]
-        # the drop starts above the word, with a trail long enough to show all of it
-        self.drops.append([x, float(y0 - rng.randint(1, 6)), rng.uniform(6, 11), len(text) + rng.randint(4, 10)])
+            self.cells[y][x0 + i] = [ch, SYS_COLORS[cat], now + self.WORD_LIFE, 0.0]
+            self.drops.append([x0 + i, start - rng.uniform(0, 1.5), speed * rng.uniform(0.9, 1.1), rng.randint(3, 7)])
 
     def frame(self, now):
         s, rng, q = self.s, self.rng, self.sampler.queue
         dt, self.last = now - self.last, now
 
-        # plant the backlog in ~2.5 s; ambient drops keep a baseline drizzle
-        self.debt += dt * len(q) / 2.5
+        # plant rate tracks the backlog (density = pressure), capped so a busy
+        # box is a downpour of readable words, not a wall of them
+        self.debt += dt * min(MAX_WORDS_PER_SEC, len(q) / 6)
         while self.debt >= 1 and q:
             self.debt -= 1
             self.plant(now, *q.popleft())
@@ -697,7 +761,7 @@ class SysRain:
         for _ in range(max(1, s.w * s.h // 80)):
             c = self.cells[rng.randrange(s.h)][rng.randrange(s.w)]
             if c[1] is None or c[2] < now:
-                c[0], c[1] = rng.choice(GLYPHS), None
+                c[0], c[1], c[3] = rng.choice(GLYPHS), None, 0.0
 
         alive = []
         for d in self.drops:
@@ -711,7 +775,10 @@ class SysRain:
                 y = head - i
                 if not 0 <= y < s.h - 1 or x >= s.w:
                     continue
-                ch, color, expiry = self.cells[y][x]
+                cell = self.cells[y][x]
+                ch, color, expiry = cell[0], cell[1], cell[2]
+                if color is not None and expiry >= now:
+                    cell[3] = now + self.GLOW  # a lit word keeps glowing after the drop passes
                 if i == 0:
                     s.put(y, x, ch, curses.COLOR_WHITE, curses.A_BOLD)
                 elif color is not None and expiry >= now:
@@ -719,6 +786,13 @@ class SysRain:
                 else:
                     s.put(y, x, ch, curses.COLOR_GREEN, curses.A_BOLD if i < trail // 3 else (0 if i < 2 * trail // 3 else curses.A_DIM))
         self.drops = alive
+
+        # afterglow: lit words fade bold -> normal -> dim, drawn over the rain
+        for y, row in enumerate(self.cells[: s.h - 1]):
+            for x, (ch, color, expiry, glow) in enumerate(row):
+                if color is not None and glow > now and expiry >= now:
+                    left = (glow - now) / self.GLOW
+                    s.put(y, x, ch, color, curses.A_BOLD if left > 0.6 else (0 if left > 0.25 else curses.A_DIM))
 
         # footer legend, in the words' colors
         x = 1
