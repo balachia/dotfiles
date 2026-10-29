@@ -171,6 +171,17 @@ YARD_SIGN = {
         "structure is not destiny",
         "it's cool to get sick first",  # central people catch the flu early (Christakis & Fowler 2010)
     ],
+    "distinctions": [  # JARGON is not RELATED JARGON
+        "status is not merit", "homophily is not influence", "centrality is not power",
+        "bridging is not bonding", "legitimacy is not performance",
+        "policy is not practice", "adoption is not implementation",
+        "efficiency is not effectiveness", "authority is not power",
+        "reliability is not validity", "precision is not accuracy",
+        "significance is not importance", "prediction is not explanation",
+        "robustness is not replication", "confidence is not credibility",
+        "an outlier is not an error", "diversity is not inclusion",
+        "sex is not gender", "gender is not sexuality",
+    ],
     "counterintuitive": [  # true, and sounds wrong (contested ones left out)
         "your friends have more friends than you",
         "most people have more than the average number of legs",
