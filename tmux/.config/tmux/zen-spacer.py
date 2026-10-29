@@ -169,6 +169,7 @@ YARD_SIGN = {
         "brokers see more", "closure builds trust",
         "your friends have more friends than you", "everything is embedded",
         "structure is not destiny",
+        "it's cool to get sick first",  # central people catch the flu early (Christakis & Fowler 2010)
     ],
     "counterintuitive": [  # true, and sounds wrong (contested ones left out)
         "your friends have more friends than you",
@@ -243,9 +244,12 @@ class Garden:
         user = getpass.getuser()  # usernames are case-sensitive: keep it as-is
         inner = min(s.w - 6, 30)
         for n in range(len(self.beliefs), -1, -1):
-            body = [l for b in self.beliefs[:n] for l in textwrap.wrap(b, inner)]
-            lines = [(f"IN THIS {host}", True), ("WE BELIEVE:", True), ("", False)]
-            lines += [(l, False) for l in body] + [(f"{user} is user", False)]
+            # header centered (loud=True); beliefs left-aligned, a wrapped
+            # belief's continuation indented so each reads as one item
+            body = [(("  " if i else "") + l, False)
+                    for b in self.beliefs[:n] + [f"{user} is user"]
+                    for i, l in enumerate(textwrap.wrap(b, inner - 2))]
+            lines = [(f"IN THIS {host}", True), ("WE BELIEVE:", True), ("", False)] + body
             if all(len(l) <= inner for l, _ in lines) and len(lines) + 2 <= s.h - self.gy // 4 + 4:
                 break
         else:
@@ -594,7 +598,8 @@ class Garden:
         if self.sign:
             left, top, bw, bh, lines = self.sign
             for i, (line, loud) in enumerate(lines):
-                s.put(top + 1 + i, left + (bw - len(line)) // 2, line, self.ink, curses.A_BOLD if loud else 0)
+                x = left + (bw - len(line)) // 2 if loud else left + 2
+                s.put(top + 1 + i, x, line, self.ink, curses.A_BOLD if loud else 0)
 
 
 
