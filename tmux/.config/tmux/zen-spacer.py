@@ -9,7 +9,7 @@ Styles:
           window-wide scene: leaves blow behind the center pane and come
           out the other side.
   coffee  a table across both panels: a steaming mug with the hostname on
-          it on one side, a green banker's lamp with moths on the other (side picked at random per
+          it on one side, a green banker's lamp under an analog wall clock, both in braille, on the other (side picked at random per
           toggle). The coffee goes cold after 45 minutes.
   matrix  green falling-glyph rain.
   sysrain matrix rain that reveals live system activity planted in the
@@ -250,7 +250,6 @@ CLOUD = ["   .--.    ", ".-(    ).  ", "(___.__)__)"]
 
 # ---------------------------------------------------------------- coffee
 
-STEAM_GLYPHS = "()~'."
 # printed on the mug; USER / HOST are filled in (bold red). Tried in order
 # until one fits the mug.
 MUG_SLOGANS = [
@@ -267,7 +266,7 @@ def clamp(v, lo, hi):
 
 class Coffee:
     """A table across both panels; a steaming mug (with the hostname on it)
-    on one side and a green banker's lamp (with moths) on the other. The mug
+    on one side and a green banker's lamp under an analog wall clock, both in braille, on the other. The mug
     keeps real-mug proportions; the lamp scales with the panel. ZEN_SEED, shared by both spacers, picks which side
     gets the mug."""
     fps = 8
@@ -280,7 +279,7 @@ class Coffee:
         self.user = " ".join(getpass.getuser().upper())
         self.rng = random.Random()
         self.start = time.time()
-        self.steam = []  # [x, y, age, phase]
+        self.steam = []  # (born, x0, y0, phase), in braille dots
         self.last = self.start
         self.resize()
 
@@ -296,20 +295,33 @@ class Coffee:
         self.mh = max(7, round(self.mw * 0.45))
         # lamp
         self.sw = clamp(w * 3 // 5, 15, 35) | 1
-        self.lh = clamp(h * 9 // 20, 10, 24)
+        # wall clock at the top: as wide as ~2/5 of the panel; cw cells wide is
+        # cw/2 rows tall in braille. The lamp gets what's left below it.
+        self.clock_cols = clamp(w * 2 // 5, 0, 24) // 2 * 2
+        self.lh = clamp(h * 9 // 20, 10, max(10, self.table_y - self.clock_cols // 2 - 4))
 
     def slogan(self, lines):
         return [self.user if l == "USER" else self.name if l == "HOST" else l for l in lines]
 
     def mug_art(self):
+        """The mug in box-drawing characters: rounded rim and base, and a
+        handle joined to the body with tees."""
         mw, mh = self.mw, self.mh
-        rows = [" " + "_" * (mw - 2), "|" + "~" * (mw - 2) + "|"]
-        body = mh - 4
-        h0, h1 = 0, max(2, body * 2 // 3)  # handle spans these body rows
+        rows = ["\u256d" + "\u2500" * (mw - 2) + "\u256e",   # ╭──╮
+                "\u2502" + "~" * (mw - 2) + "\u2502"]         # │~~│
+        body = mh - 3
+        h0, h1 = 1, max(3, body * 2 // 3)  # handle spans these body rows
         for i in range(body):
-            handle = "__" if i == h0 else ("__|" if i == h1 else ("  |" if h0 < i < h1 else ""))
-            rows.append("|" + " " * (mw - 2) + "|" + handle)
-        rows.append(" \\" + "_" * (mw - 4) + "/")
+            if i == h0:
+                side = "\u251c\u2500\u256e"   # ├─╮
+            elif i == h1:
+                side = "\u251c\u2500\u256f"   # ├─╯
+            elif h0 < i < h1:
+                side = "\u2502 \u2502"         # │ │
+            else:
+                side = "\u2502"
+            rows.append("\u2502" + " " * (mw - 2) + side)
+        rows.append("\u2570" + "\u2500" * (mw - 2) + "\u256f")  # ╰──╯
         return rows
 
     def art(self, y, x, lines, color, attr=0):
@@ -337,16 +349,14 @@ class Coffee:
         s, ty, mw = self.s, self.table_y, self.mw
         art = self.mug_art()
         mx = self.cx - (mw + 3) // 2
-        top = ty - len(art)  # leaves the table row for the saucer
-        # saucer
-        s.put(ty, mx - 3, "\\" + "_" * (mw + 6) + "/", curses.COLOR_WHITE, curses.A_BOLD)
+        top = ty - len(art)  # the mug sits just above the table row
         self.art(top, mx, art, curses.COLOR_WHITE, curses.A_BOLD)
         for j in range(1, mw - 1):
             s.put(top + 1, mx + j, "~", curses.COLOR_YELLOW)  # the coffee
         # printed on the mug: the first slogan that fits
         for slogan in MUG_SLOGANS:
             lines = self.slogan(slogan)
-            if max(map(len, lines)) <= mw - 4 and len(lines) <= len(art) - 3:
+            if max(map(len, lines)) <= mw - 4 and len(lines) <= len(art) - 4:
                 break
         y = top + 2 + (len(art) - 3 - len(lines)) // 2
         for i, (line, raw) in enumerate(zip(lines, slogan)):
@@ -354,55 +364,136 @@ class Coffee:
             s.put(y + i, mx + (mw - len(line)) // 2, line,
                   curses.COLOR_RED if loud else curses.COLOR_WHITE, curses.A_BOLD if loud else 0)
 
+        b = Braille()
+        # saucer: a shallow braille dish in the table row, rim on top
+        cxp, half = (mx + mw // 2) * 2, mw + 6
+        for x in range(-half, half + 1):
+            b.dot(cxp + x, ty * 4, (curses.COLOR_WHITE, curses.A_BOLD), 1)
+            b.dot(cxp + x, ty * 4 + round(3 * (1 - (x / half) ** 2)), (curses.COLOR_WHITE, curses.A_BOLD), 1)
+
+        # steam: braille wisps. Each puff is a short trail of dots along its
+        # own curling path, fading as it rises.
         warmth = max(0.0, 1 - (now - self.start) / COLD_AFTER)
         if self.rng.random() < (0.6 + mw / 25) * warmth:
-            self.steam.append([mx + self.rng.uniform(2, mw - 2), top - 0.5, 0.0, self.rng.uniform(0, 6.28)])
-        for p in self.steam:
-            p[2] += dt
-            p[1] -= 1.6 * dt
+            self.steam.append((now, (mx + self.rng.uniform(2, mw - 2)) * 2, top * 4 - 1, self.rng.uniform(0, 6.28)))
         life = 4 + self.mh / 3
-        self.steam = [p for p in self.steam if p[2] < life]
-        for x, y, age, phase in self.steam:
-            wx = x + 1.5 * math.sin(age * 1.8 + phase) + 0.5 * age
-            attr = curses.A_BOLD if age < life * 0.25 else (0 if age < life * 0.6 else curses.A_DIM)
-            s.put(int(y), int(wx), STEAM_GLYPHS[int(age * 2 + phase) % len(STEAM_GLYPHS)], curses.COLOR_WHITE, attr)
+        self.steam = [p for p in self.steam if now - p[0] < life]
+        for born, x0, y0, phase in self.steam:
+            for back in range(6):  # the puff plus its trail
+                age = now - born - back * 0.12
+                if age < 0:
+                    break
+                x = x0 + 3 * math.sin(age * 1.8 + phase) + 1.0 * age
+                y = y0 - 6.4 * age
+                frac = age / life
+                style = (curses.COLOR_WHITE, curses.A_BOLD if frac < 0.3 else (0 if frac < 0.65 else curses.A_DIM))
+                b.dot(round(x), round(y), style, 2 - min(2, int(frac * 3)))
+        b.render(s)
 
     def frame_lamp(self, now):
         s, ty, cx, sw = self.s, self.table_y, self.cx, self.sw
-        y0 = max(1, ty - self.lh)  # top of the shade
-        half0 = sw // 2 - 1
+        y0 = max(1, ty - self.lh)  # top of the shade, in rows
+        self.clock(now)
 
-        # light cone: shimmering dots spreading down to a lit pool on the table
-        for y in range(y0 + 3, ty):
-            half = half0 + (y - y0 - 3) * 0.9
-            for x in range(int(cx - half), int(cx + half) + 1):
-                if self.rng.random() < 0.07:
-                    s.put(y, x, self.rng.choice(".,'`"), curses.COLOR_YELLOW, curses.A_DIM)
-        half = half0 + (ty - y0 - 3) * 0.9
-        for x in range(int(cx - half), int(cx + half) + 1):
-            s.put(ty, x, "_", curses.COLOR_YELLOW, curses.A_BOLD)
+        # everything below is drawn in braille dots: x in [0, 2w), y in [0, 4h);
+        # dots are square, so shapes keep their proportions
+        b = Braille()
+        glass, glass_edge = (curses.COLOR_GREEN, 0), (curses.COLOR_GREEN, curses.A_BOLD)
+        brass, light = (curses.COLOR_YELLOW, 0), (curses.COLOR_YELLOW, curses.A_BOLD)
+        cxp, half = cx * 2 + 1, sw  # shade half-width in dots (sw cells = 2*sw dots)
+        top, depth = y0 * 4, 12  # shade: a dome, flat along the bottom
+        bottom = top + depth
 
-        # shade (green glass), brass stem, base, swinging pull chain
-        s.put(y0, cx - (sw - 4) // 2, "_" * (sw - 4), curses.COLOR_GREEN, curses.A_BOLD)
-        s.put(y0 + 1, cx - (sw - 2) // 2, "/" + "=" * (sw - 4) + "\\", curses.COLOR_GREEN, curses.A_BOLD)
-        s.put(y0 + 2, cx - sw // 2, "/" + "_" * (sw - 2) + "\\", curses.COLOR_GREEN, curses.A_BOLD)
-        for y in range(y0 + 3, ty - 2):
-            s.put(y, cx - 1, "||", curses.COLOR_YELLOW, curses.A_BOLD)
-        bw = sw * 3 // 5
-        s.put(ty - 2, cx - bw // 2, "_" * (bw // 2 - 1) + "||" + "_" * (bw - bw // 2 - 1), curses.COLOR_YELLOW, curses.A_BOLD)
-        s.put(ty - 1, cx - bw // 2 - 1, "(" + "_" * bw + ")", curses.COLOR_YELLOW, curses.A_BOLD)
-        chain_x = cx + sw // 4
-        sway = int(round(math.sin(now * 1.1)))
-        links = max(3, self.lh // 4)
-        for i in range(links):
-            s.put(y0 + 3 + i, chain_x + (sway if i == links - 1 else 0), ":", curses.COLOR_YELLOW)
-        s.put(y0 + 3 + links, chain_x + sway, "o", curses.COLOR_YELLOW, curses.A_BOLD)
+        for x in range(-half, half + 1):
+            crown = top + round(depth * 0.55 * (x / half) ** 2)
+            b.dot(cxp + x, crown, glass_edge, 2)
+            b.dot(cxp + x, bottom, glass_edge, 2)
+            for y in range(crown + 1, bottom):
+                # ordered dither, denser toward the lit bottom edge
+                if BAYER[y % 4][x % 4] < 2 + 12 * (y - crown) / max(1, bottom - crown):
+                    b.dot(cxp + x, y, glass, 1)
 
-        # moths, drawn to the light
-        for k in (1, 2):
-            mx = cx + (sw * 0.7) * math.sin(now * 0.7 * k + k) + 3 * math.sin(now * 2.9 + 2 * k)
-            my = y0 + 1 + 2.5 * math.sin(now * 1.1 * k + 3 * k) + math.sin(now * 3.7 + k)
-            s.put(int(my), int(mx), "ж" if int(now * 6 + k) % 2 else "x", curses.COLOR_WHITE)  # ж
+        floor = ty * 4 + 3  # the table line is the bottom dot row of the table cells
+        for x in range(-round(half * 1.6), round(half * 1.6) + 1):
+            b.dot(cxp + x, floor, light, 3)  # lit pool on the table
+
+        # base: a low brass dome; stem from the shade down into it
+        bhalf, bh = max(6, half * 3 // 5), 6
+        for x in range(-bhalf, bhalf + 1):
+            rim = floor - 1 - round(bh * math.sqrt(max(0.0, 1 - (x / bhalf) ** 2)))
+            b.dot(cxp + x, rim, light, 2)
+            for y in range(rim + 1, floor):
+                if BAYER[y % 4][x % 4] < 9:
+                    b.dot(cxp + x, y, brass, 1)
+        for y in range(bottom + 1, floor - bh):
+            b.dot(cxp, y, light, 2)
+
+        # pull chain: a pendulum hanging from the shade's edge
+        px, py = cxp + half * 3 // 5, bottom + 1
+        length = max(8, (floor - bottom) // 3)
+        swing = 0.22 * math.sin(now * 1.1)
+        for t in range(0, length, 2):
+            b.dot(round(px + t * math.sin(swing)), round(py + t * math.cos(swing)), brass, 1)
+        ex, ey = round(px + length * math.sin(swing)), round(py + length * math.cos(swing))
+        for dx, dy in ((0, 0), (1, 0), (0, 1), (1, 1)):
+            b.dot(ex + dx, ey + dy, light, 2)
+
+        b.render(s)
+
+    def clock(self, now):
+        """Analog H:M wall clock at the top of the panel, on local time, in
+        braille (square dots, so the face is a true circle)."""
+        cw = self.clock_cols
+        if cw < 8:
+            return
+        b = Braille()
+        r = cw - 1  # radius in dots; the face is 2*cw dots = cw cells across
+        cxp, cyp = (self.cx - cw // 2) * 2 + cw, 4 + cw  # center, one row down from the top
+        rim, hour, minute = (curses.COLOR_WHITE, 0), (curses.COLOR_YELLOW, curses.A_BOLD), (curses.COLOR_WHITE, curses.A_BOLD)
+
+        def line(style, rank, deg, r0, r1):
+            th = math.radians(deg)
+            steps = int((r1 - r0) * 2) + 1
+            for i in range(steps + 1):
+                t = r0 + (r1 - r0) * i / steps
+                b.dot(round(cxp + t * math.sin(th)), round(cyp - t * math.cos(th)), style, rank)
+
+        for i in range(360):
+            th = math.radians(i)
+            b.dot(round(cxp + r * math.sin(th)), round(cyp - r * math.cos(th)), rim, 0)
+        for h in range(12):  # long ticks at 12/3/6/9, short ones between
+            line(rim, 0, h * 30, r * (0.72 if h % 3 == 0 else 0.84), r - 1)
+        lt = time.localtime(now)
+        line(minute, 1, 6 * lt.tm_min, 0, r * 0.8)
+        line(hour, 2, 30 * (lt.tm_hour % 12) + lt.tm_min / 2, 0, r * 0.5)
+        b.render(self.s)
+
+
+BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]  # 4x4 ordered dither
+
+
+class Braille:
+    """A dot canvas over the whole pane, rendered as braille cells (2x4 dots
+    each). Each dot carries a style and a rank; a cell takes the style of its
+    highest-ranked dot."""
+    BIT = {(0, 0): 0x01, (0, 1): 0x02, (0, 2): 0x04, (1, 0): 0x08,
+           (1, 1): 0x10, (1, 2): 0x20, (0, 3): 0x40, (1, 3): 0x80}
+
+    def __init__(self):
+        self.cells = {}  # (row, col) -> [bits, rank, style]
+
+    def dot(self, x, y, style, rank=0):
+        if x < 0 or y < 0:
+            return
+        c = self.cells.setdefault((y // 4, x // 2), [0, -1, style])
+        c[0] |= self.BIT[(x % 2, y % 4)]
+        if rank > c[1]:
+            c[1], c[2] = rank, style
+
+    def render(self, s):
+        for (row, col), (bits, _, (color, attr)) in self.cells.items():
+            s.put(row, col, chr(0x2800 + bits), color, attr)
+
 
 
 # ---------------------------------------------------------------- matrix
