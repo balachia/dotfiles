@@ -5,12 +5,19 @@
 Usage: zen-spacer.py <style>   (ZEN_SIDE=left|right is set by zen.sh)
 
 Styles:
-  garden  leaves on the wind over grass and flowers, drawn as one
-          window-wide scene: leaves blow behind the center pane and come
-          out the other side.
-  coffee  a table across both panels: a steaming mug with the hostname on
-          it on one side, a green banker's lamp under an analog wall clock, both in braille, on the other (side picked at random per
-          toggle). The coffee goes cold after 45 minutes.
+  garden  a yard at night, 1-bit dither-shaded in braille, one scene across
+          the window: moon, stars, picket fence, a tree, a meadow and
+          flowers swaying in the shared wind, a random tree (oak, pine,
+          willow, birch; @zen-tree) in a random season (summer, autumn,
+          winter = bare + snow; @zen-season), leaves blowing off it
+          and behind the center pane, fireflies, and an "IN THIS HOST WE
+          BELIEVE" yard sign with random slogans. Ink follows the season
+          unless @zen-ink is set.
+  coffee  a desk at night, 1-bit dither-shaded in braille: a steaming mug
+          with a printed label on one side, a banker's lamp under a wall
+          clock on the other, everything lit by the lamp (@zen-ink color).
+          Side picked at random per toggle; the coffee goes cold after 45
+          minutes.
   matrix  green falling-glyph rain.
   sysrain matrix rain that reveals live system activity planted in the
           glyph grid: process names (cpu, red), memory growth/residents
@@ -44,6 +51,7 @@ import random
 import re
 import socket
 import subprocess
+import textwrap
 import sys
 import threading
 import time
@@ -83,10 +91,6 @@ class Screen:
 
 # ---------------------------------------------------------------- garden
 
-LEAF_GLYPHS = ",'`~"
-LEAF_COLORS = [curses.COLOR_GREEN, curses.COLOR_YELLOW, curses.COLOR_RED, curses.COLOR_MAGENTA]
-FLOWER_HEADS = "*@o✿"  # ✿
-FLOWER_COLORS = [curses.COLOR_RED, curses.COLOR_YELLOW, curses.COLOR_MAGENTA, curses.COLOR_CYAN, curses.COLOR_WHITE]
 
 
 GUST_PERIOD = 20.0
@@ -123,129 +127,475 @@ def wind_travel(t0, t1):
     return total
 
 
-SLOT = 0.5          # a leaf may launch from the window's left edge every SLOT seconds
-LEAF_LIFE = 150.0   # older leaves are dropped (both panels apply the same cutoff)
+SLOT = 0.5          # a leaf may leave the tree every SLOT seconds
+LEAF_LIFE = 120.0   # older leaves are dropped (both panels apply the same cutoff)
+
+
+def hash01(*k):
+    """Deterministic pseudo-random in [0, 1) from integers: the same in every
+    process, so both panels agree on where things are."""
+    return (zlib.crc32(repr(k).encode()) & 0xFFFFFF) / 0x1000000
+
+
+# the garden's "IN THIS HOST WE BELIEVE" sign: each toggle picks three
+# different buckets and one slogan from each
+YARD_SIGN = {
+    "queer": [
+        "trans rights are human rights", "trans women are women", "trans men are men",
+        "nonbinary people are valid", "protect trans kids", "love is love",
+        "queer joy is resistance", "tabs vs spaces is a false binary",
+    ],
+    "progressive": [
+        "black lives matter", "no human is illegal", "healthcare is a human right",
+        "science is real", "kindness is everything",
+    ],
+    "metascience": [
+        "null results are results", "replication is a love language",
+        "preregister your hypotheses", "effect sizes over asterisks",
+        "citations are not quality", "the h-index is not your worth",
+        "open data is a public good", "peer review is unpaid labor",
+        "correlation is not causation", "the Matthew effect is real",
+        "share your code", "p < .05 is not a personality",
+    ],
+    "orgs": [
+        "the iron cage has a key", "isomorphism is not innovation",
+        "status is not merit", "it's institutions all the way down",
+        "ceremony is not efficiency", "loose coupling is a feature",
+        "satisficing is enough", "routines are memory",
+    ],
+    "networks": [
+        "weak ties carry news, strong ties carry know-how",
+        "complex contagions need wide bridges", "mind the structural holes",
+        "brokers see more", "closure builds trust",
+        "your friends have more friends than you", "everything is embedded",
+        "structure is not destiny",
+    ],
+    "counterintuitive": [  # true, and sounds wrong (contested ones left out)
+        "your friends have more friends than you",
+        "most people have more than the average number of legs",
+        "among 23 people, two likely share a birthday",
+        "a new road can slow down traffic",
+        "always switch doors",
+        "randomness clusters",
+        "armor goes where the bullet holes aren't",
+        "your classes were smaller than they felt",
+        "a trend in every group can reverse overall",
+        "about 30% of numbers start with 1",
+        "this shuffle of cards has never existed before",
+        "bananas are berries, strawberries aren't",
+        "groups do what nobody wants",
+        "a hen is an egg's way of making another egg",  # after Samuel Butler, 1877
+    ],
+}
 
 
 class Garden:
-    """Window-wide landscape in depth layers, back to front: clouds, far
-    mountains, mid hills with trees, far leaves, near grass/flowers/leaves.
-    Far things are dimmer and move slower."""
-    fps = 5
+    """A yard at night, 1-bit and dither-shaded in braille, drawn as one scene
+    across the whole window: stars, a moon (the only light), a picket fence,
+    a tree, a meadow swaying in the shared wind, flowers, leaves blowing off
+    the tree and behind the center pane, fireflies. One ink color (@zen-ink,
+    default green). Positions are in window-wide dots so both panels agree."""
+    fps = 6
 
     def __init__(self, s, side):
         self.s = s
+        # species and season: @zen-tree / @zen-season, else picked from the
+        # shared seed so both panels agree. The ink follows the season unless
+        # @zen-ink is set.
+        seed = int(os.environ.get("ZEN_SEED", "0") or 0)
+        pick = random.Random(seed)
+        self.beliefs = [pick.choice(YARD_SIGN[b]) for b in pick.sample(sorted(YARD_SIGN), 3)]
+        self.tree_kind = (tmux("display", "-p", "#{@zen-tree}") or
+                          random.Random(seed * 7 + 1).choice(["oak", "pine", "willow", "birch"]))
+        self.season = (tmux("display", "-p", "#{@zen-season}") or
+                       random.Random(seed * 13 + 5).choice(["summer", "autumn", "winter"]))
+        ink = (tmux("display", "-p", "#{@zen-ink}") or
+               {"summer": "green", "autumn": "yellow", "winter": "white"}.get(self.season, "green")).lower()
+        self.ink = getattr(curses, f"COLOR_{ink.upper()}", curses.COLOR_GREEN)
         self.resize()
 
+    # -- geometry and static shading ---------------------------------------
+
     def resize(self):
-        # the flower bed is laid out across the whole window, so it lines up
-        # on both sides of the center pane
-        rng = random.Random(7)
-        self.bed = []
-        x = rng.randrange(1, 5)
-        while x < self.s.world_w - 1:
-            self.bed.append((x, rng.randint(2, 4), rng.choice(FLOWER_HEADS), rng.choice(FLOWER_COLORS)))
-            x += rng.randint(4, 9)
+        s = self.s
+        self.W, self.H = 2 * s.w, 4 * s.h
+        self.ox = s.x0 * 2               # this panel's left edge, in world dots
+        self.WW = s.world_w * 2          # window width, in world dots
+        self.gy = int(self.H * 0.72)     # where the yard meets the fence
+        self.moon = (self.WW * 0.8, self.H * 0.14, max(5.0, self.H * 0.045))
+        # the tree stands in the yard, in front of the fence (which it hides)
+        self.tree = (self.WW * 0.14, self.gy + int((self.H - self.gy) * 0.22))
+        self.dots = set()
+        self.paint_sky()
+        self.paint_fence()
+        self.paint_tree()
+        self.layout_sign()
 
-        # mountains (far, tall, steep) and hills (mid, low, gentle)
-        h = self.s.h
-        self.ranges = {}
-        for layer, base, lo, hi, gap, slope in (("far", 0.50, 0.18, 0.40, (8, 20), (0.6, 1.0)),
-                                                ("mid", 0.72, 0.62, 0.68, (14, 30), (0.25, 0.4))):
-            peaks, px = [], rng.randint(-10, 5)
-            while px < self.s.world_w + 20:
-                peaks.append((px, rng.uniform(h * lo, h * hi), rng.uniform(*slope)))
-                px += rng.randint(*gap)
-            self.ranges[layer] = (h * base, peaks)
+    def layout_sign(self):
+        """IN THIS HOST / WE BELIEVE: ... / <user> is user, on a stake in the
+        meadow of whichever panel is away from the tree. Drops slogans until
+        it fits; wraps long ones."""
+        s = self.s
+        self.sign = None
+        if (self.ox + self.W / 2 < self.WW / 2) == (self.tree[0] < self.WW / 2) or s.w < 18:
+            return
+        host = socket.gethostname().split(".")[0].upper()
+        user = getpass.getuser()  # usernames are case-sensitive: keep it as-is
+        inner = min(s.w - 6, 30)
+        for n in range(len(self.beliefs), -1, -1):
+            body = [l for b in self.beliefs[:n] for l in textwrap.wrap(b, inner)]
+            lines = [(f"IN THIS {host}", True), ("WE BELIEVE:", True), ("", False)]
+            lines += [(l, False) for l in body] + [("", False), (f"{user} is user", True)]
+            if all(len(l) <= inner for l, _ in lines) and len(lines) + 2 <= s.h - self.gy // 4 + 4:
+                break
+        else:
+            return
+        bw = max(len(l) for l, _ in lines) + 4
+        bh = len(lines) + 2
+        bottom = s.h - 3                      # board's bottom row; the stake goes below
+        top = bottom - bh + 1
+        left = (s.w - bw) // 2
+        self.sign = (left, top, bw, bh, lines)
 
-    def leaves(self, now, depth, salt, y_lo, y_hi):
-        """Every live leaf in one depth layer as (world_x, y, k); identical in
-        both panels. depth scales speed (far = slow)."""
+    def shade(self, wx, y, b, dots=None):
+        """1-bit at world x: ink if brightness b beats the dither threshold."""
+        x = round(wx) - self.ox
+        dots = self.dots if dots is None else dots
+        if 0 <= x < self.W and 0 <= y < self.H:
+            if b > 0.04 and b > DITHER[y % 64][(x + self.ox) % 64]:
+                dots.add((x, y))
+            else:
+                dots.discard((x, y))
+
+    def moonlight(self, wx, y):
+        """How strongly a surface at (wx, y) faces the moon: 0..1, horizontal only."""
+        mx, my, _ = self.moon
+        return 0.5 + 0.5 * clamp((mx - wx) / (abs(mx - wx) + 40), -1.0, 1.0)
+
+    def paint_sky(self):
+        mx, my, mr = self.moon
+        for y in range(self.gy):
+            for x in range(self.W):
+                wx = x + self.ox
+                d = math.hypot(wx - mx, y - my)
+                if d <= mr:  # the moon: bright, with a couple of soft maria
+                    maria = 0.35 * math.exp(-((wx - mx + mr * 0.3) ** 2 + (y - my - mr * 0.2) ** 2) / (mr * 0.35) ** 2)
+                    maria += 0.3 * math.exp(-((wx - mx - mr * 0.35) ** 2 + (y - my + mr * 0.3) ** 2) / (mr * 0.25) ** 2)
+                    self.shade(wx, y, 0.97 - maria)
+                else:  # halo, then stars
+                    halo = 0.5 * math.exp(-((d - mr) / (mr * 0.9)) ** 2)
+                    star = 1.0 if hash01(wx, y, 1) < 0.0025 else 0.0
+                    self.shade(wx, y, max(halo, star))
+
+    def paint_fence(self):
+        gy, H = self.gy, self.H
+        top = gy - int(H * 0.16)
+        rails = (gy - int(H * 0.05), gy - int(H * 0.12))
+        x0 = self.ox - (self.ox % 12) - 12
+        for wx in range(x0, self.ox + self.W + 12):
+            for ry in rails:  # rails, behind the pickets
+                for y in (ry, ry + 1):
+                    self.shade(wx, y, 0.35)
+            if wx % 12 in range(0, 4):  # a 4-dot picket with a pointed top
+                u = wx % 12
+                tip = top + abs(u - 1.5) * 1.5
+                lit = self.moonlight(wx, top)
+                for y in range(int(tip), gy):
+                    edge = u == (3 if self.moon[0] > wx else 0)
+                    self.shade(wx, y, 0.9 if edge else 0.15 + 0.5 * lit * (1 - (y - top) / (gy - top) * 0.5))
+
+    # species shape: trunk length (fraction of height), branching depth,
+    # fork angle range, length ratio per fork, chance of a three-way fork,
+    # leaf-clump radius (fraction of height)
+    TREES = {
+        "oak":    (0.15, 5, (26, 44), 0.76, 0.35, 0.075),
+        "birch":  (0.28, 4, (12, 22), 0.72, 0.2, 0.045),
+        "willow": (0.17, 4, (34, 52), 0.74, 0.3, 0.032),
+    }
+
+    def skeleton(self, kind, extra=0):
+        """Grow a branching skeleton from the trunk base. Returns segments
+        (x0, y0, x1, y1, depth_left) and tips (x, y), in world dots."""
+        tx, base = self.tree
+        trunk, depth, (amin, amax), ratio, p3, _ = self.TREES[kind]
+        segments, tips = [], []
+
+        def grow(x, y, deg, length, d):
+            th = math.radians(deg)
+            x1, y1 = x + length * math.sin(th), y - length * math.cos(th)
+            segments.append((x, y, x1, y1, d))
+            if d == 0:
+                tips.append((x1, y1))
+                return
+            n = 3 if hash01(round(x), round(y), 10) < p3 else 2
+            for j in range(n):
+                spread = amin + (amax - amin) * hash01(round(x1), round(y1), j)
+                turn = (j - (n - 1) / 2) * spread * (2 if n == 2 else 1)
+                grow(x1, y1, deg + turn + 10 * (hash01(j, d, round(x), 11) - 0.5),
+                     length * (ratio + 0.1 * hash01(d, j, round(y), 12)), d - 1)
+
+        grow(tx, base + 2, 0, self.H * trunk, depth + extra)
+        # fit: scale about the base so the crown (tips plus their leaf clumps)
+        # stays below the top margin, however tall this one grew
+        top = min(y for _, y in tips) - self.H * self.TREES[kind][5]
+        limit = self.H * 0.06
+        if top < limit:
+            k = (base - limit) / (base - top)
+            fit = lambda x, y: (tx + (x - tx) * k, base + (y - base) * k)
+            segments = [(*fit(x0, y0), *fit(x1, y1), d) for x0, y0, x1, y1, d in segments]
+            tips = [fit(x, y) for x, y in tips]
+        return segments, tips
+
+    def paint_limbs(self, segments, pale=False):
+        """Tapered limbs, shaded round: lit on the moon side, dark on the
+        other. pale (birch): light bark with dark flecks."""
+        side = 1 if self.moon[0] > self.tree[0] else -1
+        for x0, y0, x1, y1, d in segments:
+            w = 0.4 + 0.55 * d  # half-width in dots
+            length = math.hypot(x1 - x0, y1 - y0)
+            nx, ny = (y0 - y1) / (length + 1e-9), (x1 - x0) / (length + 1e-9)  # perpendicular
+            for i in range(int(length * 2) + 1):
+                t = i / (length * 2 + 1e-9)
+                px, py = x0 + (x1 - x0) * t, y0 + (y1 - y0) * t
+                if w < 1:
+                    self.shade(px, round(py), 0.95)
+                    continue
+                for k in range(-int(w), int(w) + 1):
+                    u = k / w
+                    if pale:
+                        fleck = hash01(round(py) // 2, d, 8) < 0.2 and hash01(k, round(py) // 2, 9) < 0.7
+                        b = 0.0 if fleck else 0.6 + 0.35 * max(0.0, u * side * nx)
+                    else:
+                        b = 0.85 if u * side * (1 if nx >= 0 else -1) > 0.5 else 0.25 + 0.4 * max(0.0, u * side)
+                    self.shade(px + k * nx, round(py + k * ny), b)
+
+    def paint_foliage(self, clumps, crown, airy):
+        """A front view of the crown: leaf clumps fill its volume (hiding the
+        inner limbs), shaded twice -- the crown as one rounded mass lit from
+        the moon side and above, and each clump as its own small sphere for a
+        lumpy, leafy surface. clumps: (x, y, r); crown: (cx, cy, radius)."""
+        side = 1 if self.moon[0] > self.tree[0] else -1
+        lx, ly, lz = 0.55 * side, -0.55, 0.62
+        ccx, ccy, cr = crown
+        best = {}  # (x, y) -> (inside, cx, cy, r): the clump nearest its own surface
+        for cx, cy, r in clumps:
+            for y in range(int(cy - r) - 1, int(cy + r) + 2):
+                for wx in range(int(cx - r) - 1, int(cx + r) + 2):
+                    inside = 1 - math.hypot(wx - cx, y - cy) / r
+                    if inside > -0.15 and inside > best.get((wx, y), (-9,))[0]:
+                        best[(wx, y)] = (inside, cx, cy, r)
+        for (wx, y), (inside, cx, cy, r) in best.items():
+            if inside <= -0.15 * hash01(wx, y, 5):  # ragged, leafy edges
+                continue
+            nx, ny = (wx - cx) / r, (y - cy) / r
+            local = max(0.0, nx * lx + ny * ly + math.sqrt(max(0.0, 1 - nx * nx - ny * ny)) * lz)
+            gx, gy = clamp((wx - ccx) / cr, -1.0, 1.0), clamp((y - ccy) / cr, -1.0, 1.0)
+            mass = max(0.0, gx * lx + gy * ly + math.sqrt(max(0.0, 1 - gx * gx - gy * gy)) * lz)
+            self.shade(wx, y, (0.06 + 0.85 * local * (0.35 + 0.65 * mass)) * (1 - airy))
+
+    def paint_tree(self):
+        """One tree, grown from a branching skeleton: oak (wide, low), birch
+        (narrow, upright, pale bark), willow (strands trail from its tips),
+        pine (dithered tiers). Leaves clump on the branch tips; in autumn
+        they thin out, in winter deciduous trees are bare twigs and it snows."""
+        tx, base = self.tree
+        H = self.H
+        kind, winter = self.tree_kind, self.season == "winter"
+        self.crown_at, self.willow_tips = None, []
+
+        if kind == "pine":
+            self.paint_pine()
+            return
+
+        segments, tips = self.skeleton(kind, extra=1 if winter else 0)
+        cx = sum(x for x, _ in tips) / len(tips)
+        cy = sum(y for _, y in tips) / len(tips)
+        spread = max(math.hypot(x - cx, y - cy) for x, y in tips)
+        if not winter:
+            self.crown_at = (cx, cy, spread * 0.8)
+        if not (self.ox - spread * 2 < tx < self.ox + self.W + spread * 2):
+            if kind == "willow" and not winter:
+                self.willow_tips = tips
+            return
+
+        self.paint_limbs(segments, pale=kind == "birch")
+        if winter:
+            return
+        airy = 0.3 if self.season == "autumn" else 0.0
+        _, depth, _, _, _, r = self.TREES[kind]
+        r *= H
+        # clumps along every branch past the first forks, plus the tips, so
+        # the crown is a filled volume rather than a ring around bare limbs
+        clumps = [(x, y, r) for x, y in tips]
+        for x0, y0, x1, y1, d in segments:
+            if d <= depth - 2:
+                n = max(1, int(math.hypot(x1 - x0, y1 - y0) / (r * 0.8)))
+                for i in range(1, n + 1):
+                    clumps.append((x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n, r * 1.1))
+        self.paint_foliage(clumps, (cx, cy, spread + r), airy)
+        if kind == "willow":
+            self.willow_tips = tips
+
+    def paint_pine(self):
+        tx, base = self.tree
+        H = self.H
+        self.paint_limbs([(tx, base + 2, tx, base - H * 0.12, 3)])
+        apex, side = base - H * 0.62, (1 if self.moon[0] > tx else -1)
+        for i in range(5):  # overlapping tiers with drooping, jagged hems
+            top = apex + i * H * 0.1
+            bottom = top + H * 0.17
+            spread = H * (0.05 + 0.04 * i)
+            for wx in range(int(tx - spread) - 1, int(tx + spread) + 2):
+                u = (wx - tx) / spread
+                if abs(u) > 1:
+                    continue
+                hem = bottom - abs(u) * H * 0.03 + 2 * hash01(wx, i, 6)  # tips droop
+                rise = top + abs(u) * (bottom - top) * 0.85              # sloped shoulders
+                for y in range(int(rise), int(hem) + 1):
+                    edge = y >= int(hem) - 1 or y <= int(rise) + 1
+                    self.shade(wx, y, 0.85 if edge and u * side > -0.3 else
+                               0.12 + 0.6 * max(0.0, 0.7 * u * side + 0.3) * (1 - (y - rise) / (hem - rise + 1) * 0.5))
+
+    def strands(self, now, wd, dots):
+        """Willow: strands hanging from the branch tips, swaying with the wind."""
+        base = self.tree[1]
+        for i, (tx, ty) in enumerate(self.willow_tips):
+            for off in (0,):
+                length = (base - ty) * (0.5 + 0.4 * hash01(i, off, 13))
+                sway = (wd * 1.8 + 0.8 * math.sin(now * 1.2 + i * 0.7)) * 3
+                for k in range(int(length)):
+                    if k % 4 == 3 or (self.season == "autumn" and hash01(i, off, k, 14) < 0.35):
+                        continue  # leafy, broken strands; balder in autumn
+                    f = k / max(1, length)
+                    x = round(tx + off + sway * f * f) - self.ox
+                    if 0 <= x < self.W:
+                        dots.add((x, round(ty + k)))
+
+    def snow(self, now, dots):
+        """Winter: flakes across the whole window, drifting with the wind."""
+        for k in range(int((now - 60) // 0.15), int(now // 0.15) + 1):
+            t0 = k * 0.15
+            r = random.Random(k * 31 + 7)
+            x0, vy = r.uniform(-self.WW * 0.3, self.WW), r.uniform(3, 7)
+            y = vy * (now - t0)
+            if y >= self.H:
+                continue
+            x = x0 + 5.0 * r.uniform(0.6, 1.2) * wind_travel(t0, now) + 2 * math.sin(now * 1.5 + k)
+            px = round(x) - self.ox
+            if 0 <= px < self.W:
+                dots.add((px, round(y)))
+
+
+    # -- per frame -----------------------------------------------------------
+
+    def leaves(self, now):
+        """Leaves leaving the tree, blown by the shared wind: (world_x, y)."""
+        if not self.crown_at:
+            return
+        tx, cy, cr = self.crown_at
         for k in range(int((now - LEAF_LIFE) // SLOT), int(now // SLOT) + 1):
             t0 = k * SLOT
-            r = random.Random(k * 7919 + salt)
-            if r.random() > 0.25 * wind(t0) or t0 > now:
+            r = random.Random(k)
+            if r.random() > (0.8 if self.season == "autumn" else 0.3) * wind(t0) or t0 > now:
                 continue
-            y0, vy = r.uniform(y_lo, y_hi * 0.75), r.uniform(0.15, 0.6) * depth
-            phase, speed = r.uniform(0, 6.28), r.uniform(0.6, 1.2) * depth
-            x = -1 + 6.0 * speed * wind_travel(t0, now)
-            # vertical: steady fall plus the integral of a sin(1.7t) flutter
-            amp = 0.5 * depth
-            y = y0 + vy * (now - t0) + (amp / 1.7) * (math.cos(1.7 * t0 + phase) - math.cos(1.7 * now + phase))
-            if x >= self.s.world_w or y >= y_hi:
-                continue
-            yield x, y, r, phase
-
-    def ridge(self, layer, wx):
-        """Row of a ridge line at world column wx: the highest of a row of
-        triangular peaks, laid out once per window width (same in both panels)."""
-        base, peaks = self.ranges[layer]
-        return min([base] + [py + abs(wx - px) * slope for px, py, slope in peaks])
-
-    def draw_ridge(self, layer, color, attr):
-        s = self.s
-        for x in range(s.w):
-            wx = s.x0 + x
-            y, yl, yr = (int(self.ridge(layer, v)) for v in (wx, wx - 1, wx + 1))
-            if y < yl and y < yr:
-                ch = "^"
-            elif yr < y:
-                ch = "/"
-            elif yr > y:
-                ch = "\\"
-            else:
-                ch = "_"
-            s.put(y, x, ch, color, attr)
-            for fill in range(min(yl, yr) + 1, y):  # close gaps on steep slopes
-                s.put(fill, x, "|", color, attr)
-            # a sparse forest on the near hills
-            if layer == "mid" and random.Random(wx * 31).random() < 0.12:
-                s.put(y - 1, x, "^", curses.COLOR_GREEN)
+            x0, y0 = tx + r.uniform(-cr, cr), cy + r.uniform(-cr * 0.5, cr * 0.5)
+            speed, vy, phase = r.uniform(0.6, 1.2), r.uniform(1.5, 4.0), r.uniform(0, 6.28)
+            x = x0 + 12.0 * speed * wind_travel(t0, now)
+            y = y0 + vy * (now - t0) + (2.0 / 1.7) * (math.cos(1.7 * t0 + phase) - math.cos(1.7 * now + phase))
+            if x < self.WW and y < self.H - 1:
+                yield x, y, int(now * 4 + phase) % 2
 
     def frame(self, now):
-        s = self.s
+        s, H, gy = self.s, self.H, self.gy
+        dots = set(self.dots)
         wd = wind(now)
 
-        # clouds: slow drift across the whole window
-        period = s.world_w + 30
-        for k in range(max(2, s.world_w // 40)):
-            cx = int((k * period / max(2, s.world_w // 40) + now * 0.4) % period) - 15 - s.x0
-            cy = 1 + (k * 5) % max(1, s.h // 5)
-            for i, line in enumerate(CLOUD):
-                for j, ch in enumerate(line):
-                    if ch != " ":
-                        s.put(cy + i, cx + j, ch, curses.COLOR_WHITE, curses.A_DIM)
+        # twinkle: a few stars blink off now and then
+        for (x, y) in list(dots):
+            if y < gy and hash01(x + self.ox, y, 1) < 0.0025 and math.sin(now * 2 + hash01(x + self.ox, y, 6) * 40) > 0.9:
+                dots.discard((x, y))
 
-        self.draw_ridge("far", curses.COLOR_BLUE, curses.A_DIM)
-        self.draw_ridge("mid", curses.COLOR_GREEN, curses.A_DIM)
+        # meadow: blades rooted at different depths; nearer ones taller, all
+        # leaning with the wind and a wave that rolls across the window
+        for x in range(self.W):
+            wx = x + self.ox
+            for layer, density in ((0, 0.4), (1, 0.2)):
+                if hash01(wx, layer, 7) > density:
+                    continue
+                root = gy + int((H - gy) * (0.15 + 0.85 * hash01(wx, layer, 8)))
+                height = 3 + (root - gy) * 0.28 * (0.6 + 0.8 * hash01(wx, layer, 9))
+                lean = (wd * 1.4 + 0.6 * math.sin(now * 1.9 + wx * 0.07)) / height
+                for i in range(int(height)):
+                    px = x + round(lean * i * i / 2)
+                    if 0 <= px < self.W:
+                        dots.add((px, root - i))
 
-        # far leaves: small, dim, slow, up high
-        for wx, y, r, phase in self.leaves(now, 0.45, 1, 0, s.h * 0.7):
-            s.put(int(y), int(wx) - s.x0, "." if int(now * 3 + phase) % 2 else "'", r.choice(LEAF_COLORS), curses.A_DIM)
+        winter, summer = self.season == "winter", self.season == "summer"
+        if self.tree_kind == "willow" and not winter:
+            self.strands(now, wd, dots)
+        if winter:
+            self.snow(now, dots)
 
-        # grass: blades lean with the wind; the wave runs across the window
-        for x in range(s.w):
-            lean = wd + 0.35 * math.sin(now * 2.1 + (s.x0 + x) * 0.6)
-            s.put(s.h - 1, x, "|" if lean < 0.6 else ("/" if lean < 1.2 else "_"), curses.COLOR_GREEN, curses.A_BOLD)
-
-        # flowers: stem sways, head trails downwind in strong gusts
-        for fx, fh, head, color in self.bed:
-            x = fx - s.x0
-            if not -2 <= x < s.w:
+        # flowers: stems with round heads, nodding in the wind (a few late
+        # ones in autumn, none in winter)
+        for wx in range(0) if winter else range(self.ox - (self.ox % 9), self.ox + self.W + 9, 9):
+            if hash01(wx, 10) > (0.4 if summer else 0.12):
                 continue
-            lean = wd + 0.3 * math.sin(now * 1.3 + fx)
-            for i in range(1, fh):
-                sx = x + (1 if lean > 1.0 and i == fh - 1 else 0)
-                s.put(s.h - 1 - i, sx, "/" if lean > 0.7 else "|", curses.COLOR_GREEN)
-            hx = x + (1 if lean > 0.7 else 0) + (1 if lean > 1.2 else 0)
-            s.put(s.h - 1 - fh, hx, head, color, curses.A_BOLD)
+            fx = wx + int(hash01(wx, 11) * 8)
+            root = H - 1 - int(hash01(wx, 12) * (H - gy) * 0.4)
+            height = 8 + int(hash01(wx, 13) * 10)
+            lean = (wd + 0.3 * math.sin(now * 1.3 + fx)) * 0.08
+            for i in range(height):
+                dots.add((fx - self.ox + round(lean * i * i / 4), root - i))
+            hx, hy = fx - self.ox + round(lean * height * height / 4), root - height - 1
+            for dx in range(-2, 3):
+                for dy in range(-2, 3):
+                    if dx * dx + dy * dy <= 4 and (dx, dy) != (0, 0):
+                        dots.add((hx + dx, hy + dy))
+            dots.discard((hx, hy))  # the flower's center
 
-        # near leaves: big, bright, fast
-        for wx, y, r, phase in self.leaves(now, 1.0, 0, 0, s.h - 1):
-            s.put(int(y), int(wx) - s.x0, LEAF_GLYPHS[int(now * 5 + phase) % len(LEAF_GLYPHS)], r.choice(LEAF_COLORS))
+        # leaves: little two-dot flecks, tumbling
+        for lx, ly, flip in self.leaves(now):
+            x, y = round(lx) - self.ox, round(ly)
+            dots.add((x, y))
+            dots.add((x + 1, y + (1 if flip else -1)))
 
+        # fireflies: drifting near the grass, blinking (summer things)
+        for k in range(max(3, self.WW // 60) if summer else 0):
+            fx = (hash01(k, 20) * self.WW + 18 * math.sin(now * 0.3 + k) + 9 * math.sin(now * 0.71 + 2 * k)) % self.WW
+            fy = gy - 6 + (H - gy) * 0.5 * hash01(k, 21) + 6 * math.sin(now * 0.5 + 3 * k)
+            if math.sin(now * (1.3 + hash01(k, 22)) + k * 5) > 0.55:
+                x, y = round(fx) - self.ox, round(fy)
+                for dx, dy in ((0, 0), (1, 0), (0, 1), (1, 1)):
+                    dots.add((x + dx, y + dy))
 
-CLOUD = ["   .--.    ", ".-(    ).  ", "(___.__)__)"]
+        if self.sign:  # the board blocks what's behind it; outline and stake in dots
+            left, top, bw, bh, lines = self.sign
+            x0, x1, y0, y1 = left * 2, (left + bw) * 2 - 1, top * 4, (top + bh) * 4 - 1
+            stake = range(y1 + 1, H)
+            for x, y in list(dots):
+                if (x0 <= x <= x1 and y0 <= y <= y1) or (abs(x - (x0 + x1) // 2) <= 1 and y in stake):
+                    dots.discard((x, y))
+            for x in range(x0, x1 + 1):
+                dots.update(((x, y0 + 1), (x, y1 - 1)))
+            for y in range(y0 + 1, y1):
+                dots.update(((x0, y), (x1, y)))
+            for y in stake:
+                dots.add(((x0 + x1) // 2, y))
+
+        cells = {}
+        for x, y in dots:
+            if 0 <= x < self.W and 0 <= y < H:
+                key = (y // 4, x // 2)
+                cells[key] = cells.get(key, 0) | Braille.BIT[(x % 2, y % 4)]
+        for (row, col), bits in cells.items():
+            s.put(row, col, chr(0x2800 + bits), self.ink)
+
+        if self.sign:
+            left, top, bw, bh, lines = self.sign
+            for i, (line, loud) in enumerate(lines):
+                s.put(top + 1 + i, left + (bw - len(line)) // 2, line, self.ink, curses.A_BOLD if loud else 0)
+
 
 
 # ---------------------------------------------------------------- coffee
@@ -265,208 +615,296 @@ def clamp(v, lo, hi):
 
 
 class Coffee:
-    """A table across both panels; a steaming mug (with the hostname on it)
-    on one side and a green banker's lamp under an analog wall clock, both in braille, on the other. The mug
-    keeps real-mug proportions; the lamp scales with the panel. ZEN_SEED, shared by both spacers, picks which side
-    gets the mug."""
+    """A desk at night, 1-bit and dither-shaded in braille (think Obra Dinn,
+    not ASCII art). One panel has a mug (with the hostname printed on a
+    label), the other a banker's lamp under a wall clock. The lamp is the
+    only light: the wall, table, mug and saucer are shaded by distance and
+    direction to its bulb, across both panels. Everything is one ink color
+    (@zen-ink, default yellow). ZEN_SEED, shared by both spacers, picks which
+    side gets the mug.
+
+    Static shading is computed once per resize; each frame adds the moving
+    bits (steam, pull chain, clock hands)."""
     fps = 8
 
     def __init__(self, s, side):
         self.s = s
         seed = int(os.environ.get("ZEN_SEED", "0") or 0)
-        self.mug = side == ("left" if seed % 2 == 0 else "right")
+        self.mug_side = "left" if seed % 2 == 0 else "right"
+        self.mug = side == self.mug_side
         self.name = " ".join(socket.gethostname().split(".")[0].upper())
         self.user = " ".join(getpass.getuser().upper())
+        ink = (tmux("display", "-p", "#{@zen-ink}") or "yellow").lower()
+        self.ink = getattr(curses, f"COLOR_{ink.upper()}", curses.COLOR_YELLOW)
         self.rng = random.Random()
         self.start = time.time()
-        self.steam = []  # (born, x0, y0, phase), in braille dots
-        self.last = self.start
+        self.steam = []  # (born, x0, y0, phase), in dots
         self.resize()
 
+    # -- geometry and static shading ---------------------------------------
+
     def resize(self):
-        h, w = self.s.h, self.s.w
+        s = self.s
+        h, w = s.h, s.w
+        self.W, self.H = 2 * w, 4 * h
         self.table_y = h - 4 if h >= 14 else h - 1
         self.cx = w // 2
-        # mug: a fixed, real-mug size (fits the slogan); terminal cells are
-        # ~2:1, so a mug about as tall as it is wide is ~0.45 rows per column.
-        # Only shrinks when the panel is too narrow.
         widest = max(len(l) for l in self.slogan(MUG_SLOGANS[0])) + 6
         self.mw = clamp(widest, len(self.name) + 4, max(10, w - 6))
         self.mh = max(7, round(self.mw * 0.45))
-        # lamp
         self.sw = clamp(w * 3 // 5, 15, 35) | 1
-        # wall clock at the top: as wide as ~2/5 of the panel; cw cells wide is
-        # cw/2 rows tall in braille. The lamp gets what's left below it.
         self.clock_cols = clamp(w * 2 // 5, 0, 24) // 2 * 2
         self.lh = clamp(h * 9 // 20, 10, max(10, self.table_y - self.clock_cols // 2 - 4))
+
+        # the bulb, in this panel's dot coordinates; the lamp panel is assumed
+        # to be this one's mirror image across the center pane
+        lamp_x0 = s.x0 if not self.mug else (s.world_w - w if self.mug_side == "left" else 0)
+        self.shade_top = max(1, self.table_y - self.lh) * 4
+        self.bulb = ((lamp_x0 + w // 2) * 2 + 1 - s.x0 * 2, self.shade_top + 12)
+
+        self.dots = set()
+        self.paint_room()
+        if self.mug:
+            self.paint_mug()
+        else:
+            self.paint_lamp()
+
+    def light(self, x, y):
+        """Lamp light reaching (x, y): falls off with distance, strong in the
+        cone under the shade, faint above it."""
+        bx, by = self.bulb
+        d = math.hypot(x - bx, y - by)
+        cone = clamp(((y - by) / (d + 1e-9) - 0.25) / 0.5, 0.0, 1.0) if y > by else 0.12
+        return cone / (1 + (d / 45) ** 2) + 0.9 * math.exp(-(d / 7) ** 2)
+
+    def shade(self, x, y, b):
+        """1-bit: the dot is ink if brightness b beats the dither threshold.
+        Below a small floor nothing is drawn, so falloff tails don't leave a
+        lattice of lone dots."""
+        if 0 <= x < self.W and 0 <= y < self.H:
+            if b > 0.04 and b > DITHER[y % 64][x % 64]:
+                self.dots.add((x, y))
+            else:
+                self.dots.discard((x, y))
+
+    def paint_room(self):
+        top = self.table_y * 4
+        for y in range(self.H):
+            for x in range(self.W):
+                if y < top:  # wall: dark, lit only near the lamp (a low ambient
+                    # level would show the dither matrix as a dot lattice)
+                    self.shade(x, y, 0.4 * self.light(x, y))
+                elif y == top:  # the table's edge catches the light
+                    self.shade(x, y, 0.35 + 0.65 * self.light(x, y))
+                else:  # table top, darker toward the front
+                    depth = (y - top) / max(1, self.H - top)
+                    self.shade(x, y, 0.8 * self.light(x, top) * (1 - 0.7 * depth))
+
+    def paint_lamp(self):
+        bx, by = self.bulb
+        half, top = self.sw, self.shade_top
+        bottom = top + 12
+        # shade: a glass dome, glowing toward its lit bottom edge
+        for x in range(-half, half + 1):
+            crown = top + round(12 * 0.55 * (x / half) ** 2)
+            for y in range(crown, bottom + 1):
+                t = (y - crown) / max(1, bottom - crown)
+                edge = y == crown or y == bottom
+                self.shade(bx + x, y, 0.95 if edge else 0.18 + 0.6 * t * t)
+        floor = self.table_y * 4
+        # base: a brass dome lit from above
+        bhalf, bh = max(6, half * 3 // 5), 6
+        for x in range(-bhalf, bhalf + 1):
+            u = x / bhalf
+            rim = floor - round(bh * math.sqrt(max(0.0, 1 - u * u)))
+            for y in range(rim, floor):
+                self.shade(bx + x, y, 0.25 + 0.7 * (1 - u * u) * (1 - (y - rim) / (bh + 1)))
+        # stem
+        for y in range(bottom + 1, floor - bh):
+            self.shade(bx, y, 1.0)
+            self.shade(bx + 1, y, 0.0)
+        # clock face: a dark disc on the wall with a lit rim and ticks
+        cw = self.clock_cols
+        if cw >= 8:
+            r = cw - 1
+            ccx, ccy = (self.cx - cw // 2) * 2 + cw, 4 + cw
+            self.clock_center = (ccx, ccy, r)
+            for y in range(ccy - r - 1, ccy + r + 2):
+                for x in range(ccx - r - 1, ccx + r + 2):
+                    if math.hypot(x - ccx, y - ccy) <= r + 0.5:
+                        self.shade(x, y, 0.0)
+            for i in range(360):
+                th = math.radians(i)
+                self.shade(round(ccx + r * math.sin(th)), round(ccy - r * math.cos(th)), 1.0)
+            for hour in range(12):
+                self.line(ccx, ccy, hour * 30, r * (0.72 if hour % 3 == 0 else 0.84), r - 1, self.dots)
+        else:
+            self.clock_center = None
+
+    def paint_mug(self):
+        bx, by = self.bulb
+        handle_cols = max(5, self.mh * 2 // 3)
+        mx = self.cx - (self.mw + handle_cols) // 2  # center mug + handle together
+        self.mx = mx
+        xl, xr = mx * 2, (mx + self.mw) * 2
+        xc, hw = (xl + xr) / 2, (xr - xl) / 2
+        top_row = self.table_y - self.mh
+        self.top_row = top_row
+        yt, yb, e = top_row * 4 + 3, self.table_y * 4 - 3, 3.5
+        side = 1 if bx > xc else -1  # which way the lamp is
+        lx, lz = 0.8 * side, 0.6
+        # it's a dim room; give the mug enough fill to read as a form
+        strength = clamp(self.light(xc, (yt + yb) / 2) * 2.2, 0.6, 1.0)
+
+        # saucer: a flat ellipse on the table, lit on top, bright rim
+        sa, sb, scy = hw + 12, 3.0, self.table_y * 4 + 1
+        for y in range(int(scy - sb) - 1, int(scy + sb) + 2):
+            for x in range(int(xc - sa) - 1, int(xc + sa) + 2):
+                v = ((x - xc) / sa) ** 2 + ((y - scy) / sb) ** 2
+                if v <= 1:
+                    self.shade(x, y, 0.95 if v > 0.75 and y <= scy else 0.15 + 0.4 * strength)
+
+        # handle: a ring on the right, shaded by which way its surface faces,
+        # with a lit edge so it reads even when the lamp is on the far side
+        hcy, ro = (yt + yb) / 2, (yb - yt) * 0.24
+        hcx, ri = xr + ro * 0.5, ro * 0.55
+        for y in range(int(hcy - ro) - 1, int(hcy + ro) + 2):
+            for x in range(xr, int(hcx + ro) + 2):
+                d = math.hypot(x - hcx, y - hcy)
+                if ri <= d <= ro:
+                    nx = (x - hcx) / (d + 1e-9)
+                    edge = d >= ro - 1 or d <= ri + 1
+                    self.shade(x, y, 0.85 if edge else 0.12 + 0.75 * strength * max(0.0, nx * lx + 0.45))
+
+        # body: a lit cylinder, with a curved bottom
+        for x in range(xl, xr + 1):
+            u = clamp((x - xc) / hw, -1.0, 1.0)
+            nz = math.sqrt(1 - u * u)
+            lambert = max(0.0, u * lx + nz * lz)
+            bottom = yb + e * nz
+            for y in range(yt, int(bottom) + 1):
+                # silhouette: the sides and the bottom curve catch a rim of light
+                edge = x <= xl + 1 or x >= xr - 1 or y >= int(bottom) - 1
+                self.shade(x, y, 0.9 if edge else 0.1 + 0.85 * strength * lambert)
+
+        # rim and coffee: the opening as an ellipse, dark coffee inside with a
+        # glint on the lamp side
+        for y in range(int(yt - e) - 1, int(yt + e) + 2):
+            for x in range(xl - 1, xr + 2):
+                v = ((x - xc) / hw) ** 2 + ((y - yt) / e) ** 2
+                if v <= 1.08:
+                    glint = math.exp(-(((x - xc - side * hw * 0.45) / (hw * 0.18)) ** 2 + ((y - yt) / 1.5) ** 2))
+                    self.shade(x, y, 1.0 if v > 0.8 else 0.04 + 0.8 * glint)
+
+        # the printed label: a clear decal, so the mug shows between words
+        for slogan in MUG_SLOGANS:
+            lines = self.slogan(slogan)
+            if max(map(len, lines)) <= self.mw - 4 and len(lines) <= self.mh - 4:
+                break
+        self.label = (slogan, lines)
+        self.label_y = top_row + 2 + (self.mh - 3 - len(lines)) // 2
+
+    # -- helpers -------------------------------------------------------------
 
     def slogan(self, lines):
         return [self.user if l == "USER" else self.name if l == "HOST" else l for l in lines]
 
-    def mug_art(self):
-        """The mug in box-drawing characters: rounded rim and base, and a
-        handle joined to the body with tees."""
-        mw, mh = self.mw, self.mh
-        rows = ["\u256d" + "\u2500" * (mw - 2) + "\u256e",   # ╭──╮
-                "\u2502" + "~" * (mw - 2) + "\u2502"]         # │~~│
-        body = mh - 3
-        h0, h1 = 1, max(3, body * 2 // 3)  # handle spans these body rows
-        for i in range(body):
-            if i == h0:
-                side = "\u251c\u2500\u256e"   # ├─╮
-            elif i == h1:
-                side = "\u251c\u2500\u256f"   # ├─╯
-            elif h0 < i < h1:
-                side = "\u2502 \u2502"         # │ │
-            else:
-                side = "\u2502"
-            rows.append("\u2502" + " " * (mw - 2) + side)
-        rows.append("\u2570" + "\u2500" * (mw - 2) + "\u256f")  # ╰──╯
-        return rows
+    @staticmethod
+    def line(cx, cy, deg, r0, r1, dots):
+        th = math.radians(deg)
+        steps = int((r1 - r0) * 2) + 1
+        for i in range(steps + 1):
+            t = r0 + (r1 - r0) * i / steps
+            dots.add((round(cx + t * math.sin(th)), round(cy - t * math.cos(th))))
 
-    def art(self, y, x, lines, color, attr=0):
-        for i, line in enumerate(lines):
-            for j, ch in enumerate(line):
-                if ch != " ":
-                    self.s.put(y + i, x + j, ch, color, attr)
+    # -- per frame -----------------------------------------------------------
 
     def frame(self, now):
-        s, ty = self.s, self.table_y
-        dt, self.last = now - self.last, now
-
-        # table: one line across both panels, wood grain below
-        for x in range(s.w):
-            s.put(ty, x, "_", curses.COLOR_YELLOW, curses.A_DIM)
-            if (s.x0 + x) % 11 == 3:
-                s.put(ty + 2, x, "~", curses.COLOR_YELLOW, curses.A_DIM)
-
+        s = self.s
+        dots = set(self.dots)
         if self.mug:
-            self.frame_mug(now, dt)
+            self.frame_steam(now, dots)
         else:
-            self.frame_lamp(now)
+            self.frame_lamp(now, dots)
 
-    def frame_mug(self, now, dt):
-        s, ty, mw = self.s, self.table_y, self.mw
-        art = self.mug_art()
-        mx = self.cx - (mw + 3) // 2
-        top = ty - len(art)  # the mug sits just above the table row
-        self.art(top, mx, art, curses.COLOR_WHITE, curses.A_BOLD)
-        for j in range(1, mw - 1):
-            s.put(top + 1, mx + j, "~", curses.COLOR_YELLOW)  # the coffee
-        # printed on the mug: the first slogan that fits
-        for slogan in MUG_SLOGANS:
-            lines = self.slogan(slogan)
-            if max(map(len, lines)) <= mw - 4 and len(lines) <= len(art) - 4:
-                break
-        y = top + 2 + (len(art) - 3 - len(lines)) // 2
-        for i, (line, raw) in enumerate(zip(lines, slogan)):
-            loud = raw in ("USER", "HOST")
-            s.put(y + i, mx + (mw - len(line)) // 2, line,
-                  curses.COLOR_RED if loud else curses.COLOR_WHITE, curses.A_BOLD if loud else 0)
+        cells = {}
+        for x, y in dots:
+            if 0 <= x < self.W and 0 <= y < self.H:
+                key = (y // 4, x // 2)
+                cells[key] = cells.get(key, 0) | Braille.BIT[(x % 2, y % 4)]
+        for (row, col), bits in cells.items():
+            s.put(row, col, chr(0x2800 + bits), self.ink)
 
-        b = Braille()
-        # saucer: a shallow braille dish in the table row, rim on top
-        cxp, half = (mx + mw // 2) * 2, mw + 6
-        for x in range(-half, half + 1):
-            b.dot(cxp + x, ty * 4, (curses.COLOR_WHITE, curses.A_BOLD), 1)
-            b.dot(cxp + x, ty * 4 + round(3 * (1 - (x / half) ** 2)), (curses.COLOR_WHITE, curses.A_BOLD), 1)
+        if self.mug:  # the printed label, as real text
+            slogan, lines = self.label
+            for i, (line, raw) in enumerate(zip(lines, slogan)):
+                loud = raw in ("USER", "HOST")
+                x0 = self.mx + (self.mw - len(line)) // 2
+                if loud:  # spaced-out names keep their gaps dark, to stay legible
+                    s.put(self.label_y + i, x0, line, self.ink, curses.A_BOLD)
+                else:  # clear decal: ink only where there are letters
+                    for j, ch in enumerate(line):
+                        if ch != " ":
+                            s.put(self.label_y + i, x0 + j, ch, self.ink)
 
-        # steam: braille wisps. Each puff is a short trail of dots along its
-        # own curling path, fading as it rises.
+    def frame_steam(self, now, dots):
+        """Steam: soft puffs that grow, drift and thin out, dithered so they
+        stipple away as they rise."""
         warmth = max(0.0, 1 - (now - self.start) / COLD_AFTER)
-        if self.rng.random() < (0.6 + mw / 25) * warmth:
-            self.steam.append((now, (mx + self.rng.uniform(2, mw - 2)) * 2, top * 4 - 1, self.rng.uniform(0, 6.28)))
-        life = 4 + self.mh / 3
+        xl = self.mx * 2
+        if self.rng.random() < 0.9 * warmth:
+            self.steam.append((now, xl + self.rng.uniform(6, self.mw * 2 - 6),
+                               self.top_row * 4 - 2, self.rng.uniform(0, 6.28)))
+        life = 5.0
         self.steam = [p for p in self.steam if now - p[0] < life]
         for born, x0, y0, phase in self.steam:
-            for back in range(6):  # the puff plus its trail
-                age = now - born - back * 0.12
-                if age < 0:
-                    break
-                x = x0 + 3 * math.sin(age * 1.8 + phase) + 1.0 * age
-                y = y0 - 6.4 * age
-                frac = age / life
-                style = (curses.COLOR_WHITE, curses.A_BOLD if frac < 0.3 else (0 if frac < 0.65 else curses.A_DIM))
-                b.dot(round(x), round(y), style, 2 - min(2, int(frac * 3)))
-        b.render(s)
+            age = now - born
+            x = x0 + 4 * math.sin(age * 1.3 + phase) + 1.2 * age
+            y = y0 - 7 * age
+            r = 1.5 + 1.6 * age
+            peak = 0.75 * (1 - age / life)
+            for py in range(int(y - r), int(y + r) + 1):
+                for px in range(int(x - r), int(x + r) + 1):
+                    d2 = ((px - x) ** 2 + (py - y) ** 2) / (r * r)
+                    if d2 < 1 and 0 <= px < self.W and 0 <= py < self.H and peak * (1 - d2) > DITHER[py % 64][px % 64]:
+                        dots.add((px, py))
 
-    def frame_lamp(self, now):
-        s, ty, cx, sw = self.s, self.table_y, self.cx, self.sw
-        y0 = max(1, ty - self.lh)  # top of the shade, in rows
-        self.clock(now)
-
-        # everything below is drawn in braille dots: x in [0, 2w), y in [0, 4h);
-        # dots are square, so shapes keep their proportions
-        b = Braille()
-        glass, glass_edge = (curses.COLOR_GREEN, 0), (curses.COLOR_GREEN, curses.A_BOLD)
-        brass, light = (curses.COLOR_YELLOW, 0), (curses.COLOR_YELLOW, curses.A_BOLD)
-        cxp, half = cx * 2 + 1, sw  # shade half-width in dots (sw cells = 2*sw dots)
-        top, depth = y0 * 4, 12  # shade: a dome, flat along the bottom
-        bottom = top + depth
-
-        for x in range(-half, half + 1):
-            crown = top + round(depth * 0.55 * (x / half) ** 2)
-            b.dot(cxp + x, crown, glass_edge, 2)
-            b.dot(cxp + x, bottom, glass_edge, 2)
-            for y in range(crown + 1, bottom):
-                # ordered dither, denser toward the lit bottom edge
-                if BAYER[y % 4][x % 4] < 2 + 12 * (y - crown) / max(1, bottom - crown):
-                    b.dot(cxp + x, y, glass, 1)
-
-        floor = ty * 4 + 3  # the table line is the bottom dot row of the table cells
-        for x in range(-round(half * 1.6), round(half * 1.6) + 1):
-            b.dot(cxp + x, floor, light, 3)  # lit pool on the table
-
-        # base: a low brass dome; stem from the shade down into it
-        bhalf, bh = max(6, half * 3 // 5), 6
-        for x in range(-bhalf, bhalf + 1):
-            rim = floor - 1 - round(bh * math.sqrt(max(0.0, 1 - (x / bhalf) ** 2)))
-            b.dot(cxp + x, rim, light, 2)
-            for y in range(rim + 1, floor):
-                if BAYER[y % 4][x % 4] < 9:
-                    b.dot(cxp + x, y, brass, 1)
-        for y in range(bottom + 1, floor - bh):
-            b.dot(cxp, y, light, 2)
-
-        # pull chain: a pendulum hanging from the shade's edge
-        px, py = cxp + half * 3 // 5, bottom + 1
-        length = max(8, (floor - bottom) // 3)
+    def frame_lamp(self, now, dots):
+        bx, by = self.bulb
+        # pull chain: a pendulum from the shade's edge
+        px, py = bx + self.sw * 3 // 5, by + 1
+        length = max(8, (self.table_y * 4 - by) // 3)
         swing = 0.22 * math.sin(now * 1.1)
-        for t in range(0, length, 2):
-            b.dot(round(px + t * math.sin(swing)), round(py + t * math.cos(swing)), brass, 1)
+        for t in range(length + 1):
+            q = (round(px + t * math.sin(swing)), round(py + t * math.cos(swing)))
+            if t % 2 == 0:
+                dots.add(q)
+            else:
+                dots.discard(q)
         ex, ey = round(px + length * math.sin(swing)), round(py + length * math.cos(swing))
         for dx, dy in ((0, 0), (1, 0), (0, 1), (1, 1)):
-            b.dot(ex + dx, ey + dy, light, 2)
+            dots.add((ex + dx, ey + dy))
+        # clock hands, on local time
+        if self.clock_center:
+            ccx, ccy, r = self.clock_center
+            lt = time.localtime(now)
+            self.line(ccx, ccy, 6 * lt.tm_min, 0, r * 0.8, dots)
+            self.line(ccx, ccy, 30 * (lt.tm_hour % 12) + lt.tm_min / 2, 0, r * 0.5, dots)
 
-        b.render(s)
 
-    def clock(self, now):
-        """Analog H:M wall clock at the top of the panel, on local time, in
-        braille (square dots, so the face is a true circle)."""
-        cw = self.clock_cols
-        if cw < 8:
-            return
-        b = Braille()
-        r = cw - 1  # radius in dots; the face is 2*cw dots = cw cells across
-        cxp, cyp = (self.cx - cw // 2) * 2 + cw, 4 + cw  # center, one row down from the top
-        rim, hour, minute = (curses.COLOR_WHITE, 0), (curses.COLOR_YELLOW, curses.A_BOLD), (curses.COLOR_WHITE, curses.A_BOLD)
+def bayer(n):
+    """n x n ordered-dither thresholds in (0, 1)."""
+    m = [[0]]
+    while len(m) < n:
+        k = len(m)
+        m = [[4 * m[y % k][x % k] + (0, 2, 3, 1)[(y // k) * 2 + x // k] for x in range(2 * k)] for y in range(2 * k)]
+    return [[(v + 0.5) / (n * n) for v in row] for row in m]
 
-        def line(style, rank, deg, r0, r1):
-            th = math.radians(deg)
-            steps = int((r1 - r0) * 2) + 1
-            for i in range(steps + 1):
-                t = r0 + (r1 - r0) * i / steps
-                b.dot(round(cxp + t * math.sin(th)), round(cyp - t * math.cos(th)), style, rank)
 
-        for i in range(360):
-            th = math.radians(i)
-            b.dot(round(cxp + r * math.sin(th)), round(cyp - r * math.cos(th)), rim, 0)
-        for h in range(12):  # long ticks at 12/3/6/9, short ones between
-            line(rim, 0, h * 30, r * (0.72 if h % 3 == 0 else 0.84), r - 1)
-        lt = time.localtime(now)
-        line(minute, 1, 6 * lt.tm_min, 0, r * 0.8)
-        line(hour, 2, 30 * (lt.tm_hour % 12) + lt.tm_min / 2, 0, r * 0.5)
-        b.render(self.s)
+# Bayer thresholds jittered with a little fixed noise: keeps the ordered
+# look in the midtones but breaks up the grid pattern in the shadows
+_noise = random.Random(4242)
+DITHER = [[0.75 * bayer(8)[y % 8][x % 8] + 0.25 * _noise.random() for x in range(64)] for y in range(64)]
 
 
 BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]  # 4x4 ordered dither
