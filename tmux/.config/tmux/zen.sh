@@ -1,8 +1,36 @@
 #!/usr/bin/env bash
-# zen toggle: center a pane between two blank spacer panes; run again to undo.
+# zen toggle: center a pane between two spacer panes; run again to undo.
 # Usage (from a tmux binding): zen.sh <window_id> <pane_id> [width]
-# Spacers run `cat >/dev/null` (C-d closes one by hand) and are tagged with the
-# pane option @zen, which is how the second press finds them.
+#        zen.sh respawn <spacer_pane> <side> <center_pane> <seed>   (restyle one spacer)
+# What the spacers show is picked by tmux option @zen-style:
+#   blank (default) `cat >/dev/null`, C-d closes one by hand
+#   garden|coffee|matrix|sysrain|host|transit  animations from zen-spacer.py (needs python3 with curses;
+#   falls back to blank)
+# or @zen-spacer, a raw command that overrides the style (e.g. `cbonsai -l`).
+# Animated spacers watch both options and respawn themselves when they change,
+# so `prefix : set -g @zen-style matrix` applies live.
+# Each spacer gets ZEN_SIDE=left|right, ZEN_SEED (one random number shared by
+# both, so a scene can make the same random choice on each side), and
+# ZEN_CENTER=<center pane id> (so a
+# custom command can `tmux capture-pane -t $ZEN_CENTER`), and is tagged with
+# the pane option @zen, which is how the second press finds them.
+
+spacer_cmd() {
+  local cmd style
+  cmd=$(tmux show -gqv @zen-spacer)
+  style=$(tmux show -gqv @zen-style)
+  if [ -z "$cmd" ] && [ -n "$style" ] && [ "$style" != blank ] \
+     && python3 -c 'import curses' 2>/dev/null; then
+    cmd="$(dirname "$0")/zen-spacer.py $style"
+  fi
+  echo "${cmd:-cat >/dev/null}"
+}
+
+if [ "$1" = respawn ]; then
+  tmux respawn-pane -k -t "$2" -e ZEN_SIDE="$3" -e ZEN_CENTER="$4" -e ZEN_SEED="$5" "$(spacer_cmd)"
+  exit 0
+fi
+
 win=$1 pane=$2 width=${3:-100}
 
 spacers=$(tmux list-panes -t "$win" -f '#{@zen}' -F '#{pane_id}')
@@ -18,7 +46,10 @@ if [ "$pad" -lt 1 ]; then
   exit 0
 fi
 
-for side in -b ''; do
-  p=$(tmux split-window -hd $side -l "$pad" -t "$pane" -P -F '#{pane_id}' 'cat >/dev/null')
+cmd=$(spacer_cmd)
+seed=$RANDOM
+for side in left right; do
+  [ "$side" = left ] && before=-b || before=
+  p=$(tmux split-window -hd $before -l "$pad" -t "$pane" -e ZEN_SIDE=$side -e ZEN_CENTER="$pane" -e ZEN_SEED=$seed -P -F '#{pane_id}' "$cmd")
   tmux set -p -t "$p" @zen 1
 done
