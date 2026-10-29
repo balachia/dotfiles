@@ -9,7 +9,8 @@ Styles:
           the window: moon, stars, picket fence, a tree, a meadow and
           flowers swaying in the shared wind, a random tree (oak, pine,
           willow, birch; @zen-tree) in a random season (summer, autumn,
-          winter = bare + snow; @zen-season), leaves blowing off it
+          winter = bare + snow; @zen-season) and weather (clear, rain, snow;
+          @zen-weather), leaves blowing off it
           and behind the center pane, fireflies, and an "IN THIS HOST WE
           BELIEVE" yard sign with random slogans. Ink follows the season
           unless @zen-ink is set.
@@ -201,6 +202,25 @@ YARD_SIGN = {
 }
 
 
+def yard_sign():
+    """The built-in buckets plus anything zen-slogans.py has grown and
+    verified (~/.cache/zen/slogans.json). That file is LLM output: it's
+    re-checked here as plain short text before it can reach the screen."""
+    signs = {k: list(v) for k, v in YARD_SIGN.items()}
+    try:
+        with open(os.path.expanduser("~/.cache/zen/slogans.json")) as f:
+            grown = json.load(f)
+    except (OSError, ValueError):
+        return signs
+    safe = re.compile(r"^[A-Za-z0-9 ,.'%<>=+\-:;!?/()&]{1,48}$")
+    for bucket, entries in grown.items() if isinstance(grown, dict) else ():
+        for e in entries if isinstance(entries, list) else ():
+            text = e.get("slogan") if isinstance(e, dict) else None
+            if isinstance(text, str) and safe.match(text) and text not in signs.setdefault(bucket, []):
+                signs[bucket].append(text)
+    return signs
+
+
 class Garden:
     """A yard at night, 1-bit and dither-shaded in braille, drawn as one scene
     across the whole window: stars, a moon (the only light), a picket fence,
@@ -215,12 +235,19 @@ class Garden:
         # shared seed so both panels agree. The ink follows the season unless
         # @zen-ink is set.
         seed = int(os.environ.get("ZEN_SEED", "0") or 0)
+        signs = yard_sign()
         pick = random.Random(seed)
-        self.beliefs = [pick.choice(YARD_SIGN[b]) for b in pick.sample(sorted(YARD_SIGN), 3)]
+        self.beliefs = [pick.choice(signs[b]) for b in pick.sample(sorted(signs), 3)]
         self.tree_kind = (tmux("display", "-p", "#{@zen-tree}") or
                           random.Random(seed * 7 + 1).choice(["oak", "pine", "willow", "birch"]))
         self.season = (tmux("display", "-p", "#{@zen-season}") or
                        random.Random(seed * 13 + 5).choice(["summer", "autumn", "winter"]))
+        # weather, also its own axis: winter is usually snowfall but sometimes
+        # clear and still; summer/autumn are clear or a light rain
+        odds = {"winter": ["snow", "snow", "clear"], "autumn": ["clear", "rain"]}.get(
+            self.season, ["clear", "clear", "rain"])
+        self.weather = (tmux("display", "-p", "#{@zen-weather}") or
+                        random.Random(seed * 17 + 3).choice(odds))
         ink = (tmux("display", "-p", "#{@zen-ink}") or
                {"summer": "green", "autumn": "yellow", "winter": "white"}.get(self.season, "green")).lower()
         self.ink = getattr(curses, f"COLOR_{ink.upper()}", curses.COLOR_GREEN)
@@ -240,6 +267,8 @@ class Garden:
         self.dots = set()
         self.paint_sky()
         self.paint_fence()
+        if self.season == "winter":
+            self.paint_snow_ground()
         self.paint_tree()
         self.layout_sign()
 
@@ -288,6 +317,9 @@ class Garden:
         return 0.5 + 0.5 * clamp((mx - wx) / (abs(mx - wx) + 40), -1.0, 1.0)
 
     def paint_sky(self):
+        self.stars = []
+        if self.weather == "rain":  # overcast: no moon, no stars
+            return
         mx, my, mr = self.moon
         for y in range(self.gy):
             for x in range(self.W):
@@ -299,25 +331,43 @@ class Garden:
                     self.shade(wx, y, 0.97 - maria)
                 else:  # halo, then stars
                     halo = 0.5 * math.exp(-((d - mr) / (mr * 0.9)) ** 2)
-                    star = 1.0 if hash01(wx, y, 1) < 0.0025 else 0.0
-                    self.shade(wx, y, max(halo, star))
+                    star = hash01(wx, y, 1) < 0.0025
+                    self.shade(wx, y, max(halo, 1.0 if star else 0.0))
+                    if star and halo < 0.04:
+                        # each star blinks on its own period and phase
+                        self.stars.append((x, y, 3 + 4 * hash01(wx, y, 6), hash01(y, wx, 19)))
+
+    def paint_snow_ground(self):
+        """Winter: a snow blanket over the yard -- brighter toward the front,
+        with soft drifts rolling across the window -- and caps on the pickets."""
+        gy, H = self.gy, self.H
+        for y in range(gy, H):
+            for x in range(self.W):
+                wx = x + self.ox
+                drift = 0.08 * math.sin(wx * 0.05 + 1.3) + 0.05 * math.sin(wx * 0.13)
+                depth = (y - gy) / max(1, H - gy)
+                self.shade(wx, y, 0.12 + 0.35 * depth + drift)
+        top = gy - int(H * 0.08)
+        for wx in range(self.ox - 6, self.ox + self.W + 6):
+            if wx % 6 < 2:
+                self.shade(wx, top - 1, 1.0)
+                self.shade(wx, top, 1.0)
 
     def paint_fence(self):
+        """A low picket fence: 2-dot pickets every 6 dots, two rails."""
         gy, H = self.gy, self.H
-        top = gy - int(H * 0.16)
-        rails = (gy - int(H * 0.05), gy - int(H * 0.12))
-        x0 = self.ox - (self.ox % 12) - 12
-        for wx in range(x0, self.ox + self.W + 12):
+        top = gy - int(H * 0.08)
+        rails = (gy - int(H * 0.025), gy - int(H * 0.06))
+        x0 = self.ox - (self.ox % 6) - 6
+        for wx in range(x0, self.ox + self.W + 6):
             for ry in rails:  # rails, behind the pickets
-                for y in (ry, ry + 1):
-                    self.shade(wx, y, 0.35)
-            if wx % 12 in range(0, 4):  # a 4-dot picket with a pointed top
-                u = wx % 12
-                tip = top + abs(u - 1.5) * 1.5
+                self.shade(wx, ry, 0.35)
+            u = wx % 6
+            if u < 2:  # a 2-dot picket with a point on top
                 lit = self.moonlight(wx, top)
-                for y in range(int(tip), gy):
-                    edge = u == (3 if self.moon[0] > wx else 0)
-                    self.shade(wx, y, 0.9 if edge else 0.15 + 0.5 * lit * (1 - (y - top) / (gy - top) * 0.5))
+                for y in range(top + (1 - u if self.moon[0] > wx else u), gy):
+                    edge = u == (1 if self.moon[0] > wx else 0)
+                    self.shade(wx, y, 0.9 if edge else 0.2 + 0.5 * lit)
 
     # species shape: trunk length (fraction of height), branching depth,
     # fork angle range, length ratio per fork, chance of a three-way fork,
@@ -434,7 +484,7 @@ class Garden:
             return
 
         self.paint_limbs(segments, pale=kind == "birch")
-        if winter:
+        if winter:  # bare, and still: winter's motion is the snow
             return
         airy = 0.3 if self.season == "autumn" else 0.0
         _, depth, _, _, _, r = self.TREES[kind]
@@ -486,6 +536,44 @@ class Garden:
                     if 0 <= x < self.W:
                         dots.add((x, round(ty + k)))
 
+    def spindrift(self, now, wd, dots):
+        """Winter: snow skimming across the ground, blowing right and behind
+        the center pane. More of it the windier it is: each particle only
+        shows above its own wind threshold, so gusts kick up streams."""
+        gy, H = self.gy, self.H
+        span = self.WW + 40
+        # distance the wind has carried things so far (wind_travel's smooth part)
+        travel = 0.65 * now - 3.15 * math.cos(now / 9.0) - 0.54 * math.cos(now / 2.7 + 1.3)
+        for k in range(self.WW // 4):
+            if wd < 0.75 + 0.9 * hash01(k, 40):
+                continue
+            depth = hash01(k, 41)
+            y = gy + 1 + int((H - gy - 2) * depth) - round(abs(math.sin(now * 3 + k)) * 2)
+            x = (hash01(k, 42) * span + travel * (18 + 22 * hash01(k, 43))) % span - 20 - self.ox
+            for i in range(1 + int(2 * depth)):  # nearer flakes streak longer
+                px = round(x) - i
+                if 0 <= px < self.W:
+                    dots.add((px, y))
+
+    def rain(self, now, wd, dots):
+        """Light rain: short streaks slanting with the wind, looping down the
+        window, and little splash ticks flickering in the grass."""
+        slant = 0.25 + 0.35 * wd
+        n = self.WW * self.H // 250
+        for i in range(n):
+            wx0 = hash01(i, 30) * (self.WW + self.H * slant) - self.H * slant
+            speed = 40 + 25 * hash01(i, 31)
+            y = (now * speed + hash01(i, 32) * (self.H + 20)) % (self.H + 20) - 10
+            for k in range(3):
+                x = round(wx0 + slant * (y - k)) - self.ox
+                if 0 <= x < self.W and 0 <= y - k < self.gy + (self.H - self.gy) * hash01(i, 33):
+                    dots.add((x, round(y - k)))
+        tick = int(now * 8)
+        for i in range(self.W // 6):
+            x = int(hash01(i, tick, 34) * self.W)
+            y = self.gy + int(hash01(i, tick, 35) * (self.H - self.gy))
+            dots.add((x, y))
+
     def snow(self, now, dots):
         """Winter: flakes across the whole window, drifting with the wind."""
         for k in range(int((now - 60) // 0.15), int(now // 0.15) + 1):
@@ -525,31 +613,54 @@ class Garden:
         dots = set(self.dots)
         wd = wind(now)
 
-        # twinkle: a few stars blink off now and then
-        for (x, y) in list(dots):
-            if y < gy and hash01(x + self.ox, y, 1) < 0.0025 and math.sin(now * 2 + hash01(x + self.ox, y, 6) * 40) > 0.9:
+        # twinkle: each star goes out briefly, on its own period and phase
+        for x, y, period, phase in self.stars:
+            if (now / period + phase) % 1 < 0.2 / period:
                 dots.discard((x, y))
 
         # meadow: blades rooted at different depths; nearer ones taller, all
-        # leaning with the wind and a wave that rolls across the window
+        # leaning with the wind and a wave that rolls across the window. In
+        # winter: just a few dead stalks poking through the snow, stiff,
+        # barely trembling.
+        snowed = self.season == "winter"
         for x in range(self.W):
             wx = x + self.ox
-            for layer, density in ((0, 0.4), (1, 0.2)):
+            for layer, density in ((0, 0.04), (1, 0.0)) if snowed else ((0, 0.4), (1, 0.2)):
                 if hash01(wx, layer, 7) > density:
                     continue
                 root = gy + int((H - gy) * (0.15 + 0.85 * hash01(wx, layer, 8)))
                 height = 3 + (root - gy) * 0.28 * (0.6 + 0.8 * hash01(wx, layer, 9))
                 lean = (wd * 1.4 + 0.6 * math.sin(now * 1.9 + wx * 0.07)) / height
+                if snowed:
+                    height, lean = height * 0.6, lean * 0.15
                 for i in range(int(height)):
                     px = x + round(lean * i * i / 2)
                     if 0 <= px < self.W:
                         dots.add((px, root - i))
 
+        # stubble: tiny tufts scattered through the back of the yard, each at its
+        # own depth (no layers), so the space behind the tall grass isn't bare
+        if not snowed:
+            for x in range(self.W):
+                wx = x + self.ox
+                for k in range(2):
+                    if hash01(wx, k, 16) > 0.18:
+                        continue
+                    root = gy + 1 + int((H - gy) * 0.55 * hash01(wx, k, 17))
+                    tall = 1 + int(3 * hash01(wx, k, 18))
+                    bend = 1 if wd + 0.5 * math.sin(now * 1.9 + wx * 0.07) > 1.1 else 0
+                    for i in range(tall):
+                        dots.add((x + (bend if i == tall - 1 else 0), root - i))
+
         winter, summer = self.season == "winter", self.season == "summer"
+        if winter:
+            self.spindrift(now, wd, dots)
         if self.tree_kind == "willow" and not winter:
             self.strands(now, wd, dots)
-        if winter:
+        if self.weather == "snow":
             self.snow(now, dots)
+        elif self.weather == "rain":
+            self.rain(now, wd, dots)
 
         # flowers: stems with round heads, nodding in the wind (a few late
         # ones in autumn, none in winter)
@@ -576,7 +687,7 @@ class Garden:
             dots.add((x + 1, y + (1 if flip else -1)))
 
         # fireflies: drifting near the grass, blinking (summer things)
-        for k in range(max(3, self.WW // 60) if summer else 0):
+        for k in range(max(3, self.WW // 60) if summer and self.weather != "rain" else 0):
             fx = (hash01(k, 20) * self.WW + 18 * math.sin(now * 0.3 + k) + 9 * math.sin(now * 0.71 + 2 * k)) % self.WW
             fy = gy - 6 + (H - gy) * 0.5 * hash01(k, 21) + 6 * math.sin(now * 0.5 + 3 * k)
             if math.sin(now * (1.3 + hash01(k, 22)) + k * 5) > 0.55:
