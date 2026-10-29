@@ -245,7 +245,7 @@ class Garden:
         for n in range(len(self.beliefs), -1, -1):
             body = [l for b in self.beliefs[:n] for l in textwrap.wrap(b, inner)]
             lines = [(f"IN THIS {host}", True), ("WE BELIEVE:", True), ("", False)]
-            lines += [(l, False) for l in body] + [("", False), (f"{user} is user", True)]
+            lines += [(l, False) for l in body] + [(f"{user} is user", False)]
             if all(len(l) <= inner for l, _ in lines) and len(lines) + 2 <= s.h - self.gy // 4 + 4:
                 break
         else:
