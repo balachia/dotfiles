@@ -70,6 +70,13 @@ def tmux(*args):
         return ""
 
 
+def opt(name):
+    """A tmux user option as this pane sees it: pane, then window, then
+    session, then global, so `setw @zen-style …` themes one window."""
+    pane = os.environ.get("TMUX_PANE")
+    return tmux("display", "-p", *(["-t", pane] if pane else []), f"#{{@{name}}}")
+
+
 class Screen:
     def __init__(self, scr):
         self.scr = scr
@@ -238,17 +245,17 @@ class Garden:
         signs = yard_sign()
         pick = random.Random(seed)
         self.beliefs = [pick.choice(signs[b]) for b in pick.sample(sorted(signs), 3)]
-        self.tree_kind = (tmux("display", "-p", "#{@zen-tree}") or
+        self.tree_kind = (opt("zen-tree") or
                           random.Random(seed * 7 + 1).choice(["oak", "pine", "willow", "birch"]))
-        self.season = (tmux("display", "-p", "#{@zen-season}") or
+        self.season = (opt("zen-season") or
                        random.Random(seed * 13 + 5).choice(["summer", "autumn", "winter"]))
         # weather, also its own axis: winter is usually snowfall but sometimes
         # clear and still; summer/autumn are clear or a light rain
         odds = {"winter": ["snow", "snow", "clear"], "autumn": ["clear", "rain"]}.get(
             self.season, ["clear", "clear", "rain"])
-        self.weather = (tmux("display", "-p", "#{@zen-weather}") or
+        self.weather = (opt("zen-weather") or
                         random.Random(seed * 17 + 3).choice(odds))
-        ink = (tmux("display", "-p", "#{@zen-ink}") or
+        ink = (opt("zen-ink") or
                {"summer": "green", "autumn": "yellow", "winter": "white"}.get(self.season, "green")).lower()
         self.ink = getattr(curses, f"COLOR_{ink.upper()}", curses.COLOR_GREEN)
         self.resize()
@@ -761,7 +768,7 @@ class Coffee:
         self.mug = side == self.mug_side
         self.name = " ".join(socket.gethostname().split(".")[0].upper())
         self.user = " ".join(getpass.getuser().upper())
-        ink = (tmux("display", "-p", "#{@zen-ink}") or "yellow").lower()
+        ink = (opt("zen-ink") or "yellow").lower()
         self.ink = getattr(curses, f"COLOR_{ink.upper()}", curses.COLOR_YELLOW)
         self.rng = random.Random()
         self.start = time.time()
@@ -1547,7 +1554,7 @@ class Transit:
     def __init__(self, s, side):
         self.s = s
         lines, system = [], "mbta"
-        for entry in (tmux("display", "-p", "#{@zen-transit}") or "Red,Orange").split(","):
+        for entry in (opt("zen-transit") or "Red,Orange").split(","):
             if ":" in entry:
                 system, entry = entry.split(":", 1)
             if entry.strip():
@@ -1689,8 +1696,14 @@ def main(scr, style, side):
         raise SystemExit(f"zen-spacer: unknown style {style!r}")
 
     pane = os.environ.get("TMUX_PANE", "")
-    watched = tmux("display", "-p", "#{@zen-style}|#{@zen-spacer}")
-    next_check = time.time() + 1
+    # one tmux call a second: respawn when the style options change, re-center
+    # when the width does, and pause while no client can see this window
+    fmt = "#{@zen-style}|#{@zen-spacer}\t#{@zen-width}|#{window_width}\t#{window_id}|#{window_zoomed_flag}"
+
+    def poll():
+        return (tmux("display", "-p", "-t", pane, fmt).split("\t") + ["", ""])[:3]
+    watched, fitted, _ = poll() if pane else ("", "", "")
+    visible, next_check = True, time.time() + 1
     while True:
         key = scr.getch()
         if key in (ord("q"), 4):
@@ -1700,10 +1713,24 @@ def main(scr, style, side):
             scene.resize()
         if pane and time.time() >= next_check:
             next_check = time.time() + 1
-            if tmux("display", "-p", "#{@zen-style}|#{@zen-spacer}") != watched:
+            style, fit, win = poll()
+            if style != watched:
                 # run in the server, not as our child: respawn-pane kills us
                 tmux("run-shell", "-b", f"'{HERE}/zen.sh' respawn '{pane}' '{side}' '{os.environ.get('ZEN_CENTER', '')}' '{os.environ.get('ZEN_SEED', '0')}'")
                 time.sleep(5)
+            # the left spacer also keeps the center at @zen-width (fit sizes both)
+            if side == "left" and fit != fitted:
+                fitted = fit
+                tmux("run-shell", "-b", f"'{HERE}/zen.sh' fit '{pane}'")
+            # visible = some attached client is on this window and it isn't
+            # zoomed. A tmux nested over ssh can't tell when the outer one
+            # hides it, so it just keeps animating.
+            wid, _, zoomed = win.partition("|")
+            visible = zoomed != "1" and wid in tmux("list-clients", "-F", "#{window_id}").split()
+        if not visible:
+            # scenes are drawn from the clock, so they resume where they'd be
+            time.sleep(0.5)
+            continue
         scr.erase()
         scene.frame(time.time())
         scr.refresh()

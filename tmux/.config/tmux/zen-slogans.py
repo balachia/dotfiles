@@ -168,6 +168,19 @@ def clean(s):
     return s if s and len(s) <= MAX_LEN and SAFE.match(s) else None
 
 
+def decap(s, basis=""):
+    """The sign's voice is lowercase. Undo a sentence-case capital on the first
+    word, unless it's an acronym (R&D, DNA) or a name: cited as one in the
+    basis ("Weick 1995", "Burt and Coleman") or capitalized mid-sentence there."""
+    first = s.split(" ", 1)[0]
+    if not (first[:1].isupper() and first[1:].islower()):
+        return s
+    w = re.escape(re.sub(r"'s$", "", first))
+    if re.search(rf"\b{w}(,? (\(?\d{{4}}|and |& |et al)|'s\b)", basis) or re.search(rf"[a-z,;(] {w}\b", basis):
+        return s
+    return first.lower() + s[len(first):]
+
+
 VER_SYS = ("You are a skeptical fact-checker and domain expert reviewing slogans for a sign. "
            "Be strict: a finding with a well-known critique, a failed or mixed replication, or "
            "real controversy in its field counts as contested, however famous it is. "
@@ -207,7 +220,8 @@ def run_bucket(base, name, spec, builtin, store, dry):
                "BELIEVE...') owned by an organizational sociologist who studies networks. "
                "Accuracy matters more than cleverness. Reply with a JSON array only.")
     gen_user = (f"Pattern: {spec['pattern']}\n"
-                f"Max {MAX_LEN} characters each. Plain ASCII.\n\n"
+                f"Max {MAX_LEN} characters each. Plain ASCII. All lowercase, like the "
+                f"examples, except proper names and acronyms.\n\n"
                 f"Already on the sign (match this voice, do not repeat or paraphrase):\n"
                 + "\n".join(f"- {s}" for s in existing) +
                 f"\n\nWrite {PER_BUCKET} new ones. JSON array of objects: "
@@ -216,6 +230,7 @@ def run_bucket(base, name, spec, builtin, store, dry):
     cands = []
     for c in json_array(text):
         s, basis = clean(c.get("slogan", "")), " ".join(str(c.get("basis", "")).split())[:200]
+        s = s and decap(s, basis)
         if not s:
             log(f"{name}: reject (format) {str(c.get('slogan'))[:80]!r}")
         elif spec["regex"] and not re.match(spec["regex"], s):
@@ -267,6 +282,9 @@ def main():
             store = json.load(f)
     except (OSError, json.JSONDecodeError):
         store = {}
+    for entries in store.values():  # entries from before decap existed
+        for e in entries:
+            e["slogan"] = decap(e["slogan"], e.get("basis", ""))
 
     log(f"run on {socket.gethostname()} via {base}: generator {GENERATOR}, verifier {VERIFIER}")
     for name, spec in SPECS.items():
