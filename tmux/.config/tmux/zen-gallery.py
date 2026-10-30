@@ -15,7 +15,14 @@ image server: small grayscale PNGs plus a caption each. Stdlib only.
   zen-gallery.py --plaques --redo-angle 5 --only-angle 5
                                   rewrite every take of angle 5, touching no other
                                   (no budget unless --budget is given)
+  zen-gallery.py --plaques --per-hour 300
+                                  pace gateway calls to 300 in any trailing hour
+                                  (default 500, or $ZEN_GALLERY_PER_HOUR); the
+                                  key's quota is 600/h, shared with other tools
   zen-gallery.py --if-stale 20    (for cron) do nothing if the last run was recent
+
+A gateway 429 (the key's quota spent) stops a --plaques run at once, keeping
+every take already written, with exit status 75 (EX_TEMPFAIL).
 
 Plaques: a cheap model writes a museum wall text and the same facts in the
 voice of a fussy little critic; a second model from another vendor checks
@@ -55,7 +62,7 @@ STAMP = os.path.join(CACHE, "stamp")
 KEEP = 120         # paintings kept on disk
 PER_RUN = 3        # new random picks per run
 WIDTH = 600        # pixels; a window is rarely more than ~500 braille dots wide
-FIELDS = ["id", "title", "artist_title", "date_display", "image_id", "is_public_domain"]
+FIELDS = ["id", "title", "artist_title", "date_display", "date_start", "date_end", "image_id", "is_public_domain"]
 
 
 JSON_MAX = 2 << 20     # bytes: a search reply is a few KB
@@ -143,7 +150,7 @@ def fetch(art):
     # a colour copy: the spacer picks an ink colour from it, or paints in it
     color = request(f"{IIIF}/{art['image_id']}/full/400,/0/default.png", limit=IMAGE_MAX)
     meta = {"id": aid, "image_id": art["image_id"], "title": clean(art["title"]), "artist": clean(art.get("artist_title") or "Unknown"),
-            "date": clean(art.get("date_display"), 40), "fetched": datetime.date.today().isoformat()}
+            "date": aic_date(art), "fetched": datetime.date.today().isoformat()}
     save(aid, png, color, meta)
     return aid
 
@@ -203,10 +210,71 @@ def strip_html(v):
     return clean(re.sub(r"<[^>]+>", " ", v))
 
 
+# Dates. The era has to survive: an Egyptian tomb painting dated "1390" reads
+# as medieval, in the caption and to the plaque writer. Commons dates are
+# HTML ("between circa 1390 and circa 1350 <a ...>BC</a>", "1400 BCE",
+# "circa 1000<div style=display:none>date QS:...</div>", "1st half of 18th
+# century", "Unknown date", "0000"); AIC's date_display is text that may run
+# past the caption's 40 characters ("New Kingdom, Dynasty 18, reign of
+# Amenhotep II (about 1427-1400 BCE)"), with date_start/date_end as numbers
+# (negative = BCE).
+CIRCA = r"(?:circa|ca\.?|c\.|about|approx\.?)\s*"
+ERA = r"B\.?\s?C\.?(?:\s?E\.?)?|C\.?\s?E\.?|A\.?\s?D\.?"
+# a year or range with an explicit era: any year 1-9999
+YEAR_ERA = re.compile(rf"({CIRCA})?\b([1-9][0-9]{{0,3}})(?:\s*(?:-|\u2013|\u2014|to|and)\s*(?:{CIRCA})?"
+                      rf"([1-9][0-9]{{0,3}}))?\s*({ERA})(?![A-Za-z])", re.I)
+# without one, only 1000-2099 (a bare "56" is a page, a day, anything)
+YEAR_AD = re.compile(rf"({CIRCA})?\b(1[0-9]{{3}}|20[0-9]{{2}})(?:\s*[-\u2013]\s*(1[0-9]{{3}}|20[0-9]{{2}}))?\b", re.I)
+CENTURY = re.compile(rf"(?:\b(?:early|mid|late|(?:1st|2nd|first|second) half of)[\s-]+(?:the\s+)?)?"
+                     rf"\b[1-9][0-9]?(?:st|nd|rd|th)[\s-]+century(?:\s*(?:{ERA})(?![A-Za-z]))?", re.I)
+BC = re.compile(r"\bB\.?\s?C\.?(?:\s?E\.?)?(?![A-Za-z])", re.I)
+
+
 def year(v):
-    """The first year or year range in a Commons date field."""
-    m = re.search(r"\b(1[0-9]{3}|20[0-9]{2})(\s*[-\u2013]\s*(1[0-9]{3}|20[0-9]{2}))?\b", re.sub(r"<[^>]+>", " ", str(v or "")))
-    return m.group(0) if m else ""
+    """The first year or year range in a date (Commons HTML or plain text),
+    its era kept and normalised ("c. 1390\u20131350 BC", "1400 BCE", "c. 1000"),
+    else a century ("1st half of 18th century"), else "". Hidden spans
+    (Wikidata's machine dates) don't count."""
+    s = re.sub(r'<(span|div)[^>]*display:\s*none.*?</\1>', "", str(v or ""), flags=re.S)
+    s = re.sub(r"</?sup\b[^>]*>", "", s)   # "15<sup>th</sup> century"
+    s = " ".join(re.sub(r"<[^>]+>", " ", s).split())
+    era, ad = YEAR_ERA.search(s), YEAR_AD.search(s)
+    # the earliest match wins ("1505, after a 300 BC original" is 1505); at a
+    # tie the one with the era ("1400 BCE" also matches as plain 1400)
+    m = era if era and (not ad or era.start() <= ad.start()) else ad
+    if m:
+        circa, a, b = m.group(1), m.group(2), m.group(3)
+        tag = re.sub(r"[.\s]", "", m.group(4)).upper() if m.re is YEAR_ERA else ""
+        return ("c. " if circa else "") + a + (f"\u2013{b}" if b else "") + (f" {tag}" if tag else "")
+    c = CENTURY.search(s)
+    return " ".join(c.group(0).split()) if c else ""
+
+
+def year_span(start, end):
+    """AIC's date_start/date_end as text, negative years as BCE."""
+    def one(y):
+        return f"{-y} BCE" if y < 0 else str(y)
+    if not isinstance(end, int) or end == start:
+        return one(start)
+    if (start < 0) == (end < 0):
+        return f"{abs(start)}\u2013{abs(end)}" + (" BCE" if start < 0 else "")
+    return f"{one(start)}\u2013{end} CE"
+
+
+def aic_date(art):
+    """An AIC artwork's date for the caption (40 chars): date_display if it
+    fits and keeps its era, else the year span in it, else one built from
+    date_start/date_end."""
+    disp = clean(art.get("date_display"), 200)
+    start, end = art.get("date_start"), art.get("date_end")
+    start = start if isinstance(start, int) and not isinstance(start, bool) and start else None
+    bce = start is not None and start < 0
+    if len(disp) <= 40 and (BC.search(disp) or not bce):
+        return disp
+    span = year(disp)
+    if span and len(span) <= 40 and (BC.search(span) or not bce):
+        return span
+    return clean(year_span(start, end), 40) if start is not None else disp[:40]
 
 
 def commons_thumb_ok(url):
@@ -319,9 +387,8 @@ PERSONAS = {
                  "another, with respect for their kit, their mounts and their riding, never as a "
                  "coloniser or a conqueror"),
     "kid": ("a small child of about six being walked round the museum by a grown-up, either "
-            "bored stiff ('can we go. is there a gift shop. my legs are tired') or wildly "
-            "over-excited (CAPS, counting things out loud, 'THREE dogs. no FOUR'), whichever "
-            "you're told; fixates on completely the wrong details, never the point of the "
+            "bored and fidgety or wildly over-excited (CAPS, counting things out loud, 'THREE "
+            "dogs. no FOUR'), whichever you're told; fixates on completely the wrong details, never the point of the "
             "picture: somebody's shoe, a dog in the corner, a cloud like a duck, a funny hat, "
             "the one person not looking; everything they point at is really there in the "
             "picture; short run-on kid sentences in kid words, no art words and no facts at all "
@@ -391,9 +458,46 @@ CHECK_RULES = {
     "scholar": ("The scholar take is a critic's opinion: judge only its factual claims (what "
                 "is in the picture, who made it, for whom, when), not his judgement."),
 }
-KID_MOODS = ("bored: wants to go home, asks about the gift shop or lunch, but one wrong detail "
-             "still catches their eye",
+KID_MOODS = ("bored: fidgety, only half looking, until one wrong detail catches their eye",
              "over-excited: CAPS, counting things out loud, pointing at the wrong details")
+# Left to itself the model ends nearly every kid take on "can we go now / my
+# legs hurt / is there a gift shop" (a model can't roll dice), so the code
+# decides, per painting: about 1 in KID_MOAN may grumble, the rest are told not to.
+KID_MOAN = 4
+KID_MOAN_YES = ("You may grumble once, briefly, about being here (tired, wanting to go, the gift "
+                "shop, a snack), but not as your last words: end on something in the picture.")
+KID_MOAN_NO = ("Don't complain about being here: nothing about going home or leaving, being tired "
+               "or your legs, the gift shop, lunch or snacks. Stay on the picture.")
+KID_LIFE = ("Point at the wrong things, and say what they're like from your own little life, "
+            "concretely (a toy, a pet, someone in your family, school, your bath, your shoes).")
+# Same for the hussar: most takes brought the memory in with "Puts me in mind
+# of...". How it comes in is picked per painting.
+HUSSAR_LEADS = ("he just starts telling it, with no lead-in",
+                "it slips in mid-sentence, while he's pointing at something in the picture",
+                "it comes as a short question to nobody, then the memory",
+                "it comes last, a short afterthought",
+                "he names the horse, the comrade or the sergeant first, then what happened")
+HUSSAR_NO = "Never introduce the memory with 'puts me in mind of', 'reminds me of' or any such announcement."
+
+
+def kid_may_moan(pid):
+    """Whether the kid's take on painting pid may include a bored complaint:
+    about 1 in KID_MOAN, fixed per painting (stable across runs and redos)."""
+    return random.Random(f"{pid}|kid-moan").randrange(KID_MOAN) == 0
+
+
+def hussar_lead(pid):
+    """How the hussar's army memory comes in, for painting pid (fixed per painting)."""
+    return random.Random(f"{pid}|hussar-lead").choice(HUSSAR_LEADS)
+
+
+def voice_notes(who, pid):
+    """Per-take instructions for a reactor, decided in code from the painting id."""
+    if who == "kid":
+        return " ".join((KID_LIFE, KID_MOAN_YES if kid_may_moan(pid) else KID_MOAN_NO))
+    if who == "everyman":
+        return f"{HUSSAR_NO} This time, the way it comes in: {hussar_lead(pid)}."
+    return ""
 # cast-wide, in every generation prompt (text and vision); both checkers judge it
 # separately ("respectful"). Many paintings here aren't European.
 RESPECT = ("Treat the people, cultures and traditions in the picture with respect: no "
@@ -421,6 +525,77 @@ VISION_CHECK_SYS = ("You check short texts about a picture against the picture i
                     "strict: anything the texts say is in the picture (a figure, an object, an "
                     "action, a colour, a count, where something is) must really be visible in it. "
                     "Reply with one JSON object only.")
+
+
+# Every gateway call (generator and checker, text and vision) goes through
+# ask(): paced to PER_HOUR in any trailing hour, and a 429 stops the run.
+PER_HOUR = 500   # the operator key allows 600/h, shared with the user's other tools
+EX_TEMPFAIL = 75
+
+
+class RateLimited(Exception):
+    """The gateway answered 429: the key's quota is spent; every further call would fail too."""
+
+
+class Pacer:
+    """An in-process sliding window: at most per_hour calls in any trailing
+    window (seconds). wait() before each call sleeps until the oldest ages
+    out. Only this process's calls are counted (other tools share the key:
+    hence the headroom), and chat()'s rare retry of a 5xx isn't."""
+
+    def __init__(self, per_hour, clock=time.time, sleep=time.sleep, window=3600.0):
+        self.per_hour, self.clock, self.sleep, self.window, self.calls = per_hour, clock, sleep, window, []
+
+    def wait(self):
+        while True:
+            now = self.clock()
+            self.calls = [t for t in self.calls if t > now - self.window]
+            if len(self.calls) < self.per_hour:
+                self.calls.append(now)
+                return
+            delay = max(self.calls[0] + self.window - now, 0.01)
+            print(f"plaques: {len(self.calls)} gateway calls in the last hour (pacing at "
+                  f"{self.per_hour}); waiting {delay / 60:.1f} min", flush=True)
+            self.sleep(delay)
+
+
+PACER = Pacer(PER_HOUR)
+
+
+def gateway_message(e):
+    """The error message in a gateway HTTPError's body (Bifrost's JSON error,
+    or the raw text), printable and short."""
+    try:
+        body = e.read(4096).decode("utf-8", "replace")
+    except Exception:
+        body = ""
+    msg = ""
+    try:
+        d = json.loads(body)
+        err = d.get("error") if isinstance(d, dict) else None
+        msg = (err.get("message") if isinstance(err, dict) else err if isinstance(err, str) else
+               d.get("message") if isinstance(d, dict) else "") or ""
+        kind = (d.get("error_type") or (err.get("type") if isinstance(err, dict) else None)) if isinstance(d, dict) else None
+        if msg and isinstance(kind, str) and kind:
+            msg = f"{msg} ({kind})"
+    except ValueError:
+        pass
+    return printable(msg or body or getattr(e, "reason", "") or e)[:240]
+
+
+def ask(fn, *args, **kw):
+    """fn(*args, **kw), a gateway call: paced by PACER; a 429 is RateLimited."""
+    PACER.wait()
+    try:
+        return fn(*args, **kw)
+    except urllib.error.HTTPError as e:
+        if e.code == 429:
+            try:
+                msg = gateway_message(e)
+            finally:
+                e.close()
+            raise RateLimited(msg) from None
+        raise
 
 
 def chat_image(base, model, system, text, png_path, temperature, max_tokens=1200):
@@ -451,11 +626,15 @@ def chat_image(base, model, system, text, png_path, temperature, max_tokens=1200
 def vision_take(zs, base, angle, png):
     """One reactor take from looking at the picture, then checked against it.
     Returns (take or None, verdict dict); verdict["pass"] says if it's kept.
-    No title/artist/date is given: the character only knows what he sees."""
+    No title/artist/date is given: the character only knows what he sees.
+    The painting id (for voice_notes) is png's name, <id>-color.png."""
     who = ANGLES[angle][1]
+    pid = os.path.basename(png).removesuffix("-color.png")
     mood = random.choice(KID_MOODS) if who == "kid" else None
-    text, gen = chat_image(base, VISION_GEN, VISION_SYS, (
+    notes = voice_notes(who, pid)
+    text, gen = ask(chat_image, base, VISION_GEN, VISION_SYS, (
         f"You are {PERSONAS[who]}." + (f" This time you are {mood}." if mood else "") +
+        (f" {notes}" if notes else "") +
         "\n\nLook at this picture. Write two texts, plain ASCII, each "
         "at most 300 characters:\n"
         '"plaque": a short, plain museum-style note, two sentences, saying what is visibly in '
@@ -473,7 +652,7 @@ def vision_take(zs, base, angle, png):
         return None, {"pass": False, "reason": "no text"}
     if mood:
         take["mood"] = mood.split(":")[0]
-    check, ver = chat_image(base, VISION_CHECK, VISION_CHECK_SYS, (
+    check, ver = ask(chat_image, base, VISION_CHECK, VISION_CHECK_SYS, (
         f"Text A (a plain museum note): {take['plaque']}\n"
         f"Text B (spoken by {who}, who knows nothing about art or history, only what they see "
         f"and their own life): {take['spoken']}\n\n"
@@ -500,7 +679,7 @@ def text_takes(zs, base, meta, takes, todo):
     said = "".join(f"\n- {t['plaque']}" for t in takes)
     cast = {ANGLES[i][1] for i in todo}
     try:
-        text, gen = zs["chat"](base, zs["GENERATOR"], PLAQUE_SYS, about + (
+        text, gen = ask(zs["chat"], base, zs["GENERATOR"], PLAQUE_SYS, about + (
             f"\n\nWrite {len(todo)} takes on this painting, one per angle below. Each take "
             "is two texts, plain ASCII, each at most 300 characters:\n"
             '"plaque": museum wall text, two or three sentences. If you are not sure of '
@@ -527,7 +706,7 @@ def text_takes(zs, base, meta, takes, todo):
             return [], None, None, declined
         rules = "".join(f"\n{CHECK_RULES[ANGLES[t['angle']][1]]} (That is take {i + 1}.)"
                         for i, t in enumerate(new) if ANGLES[t["angle"]][1] in CHECK_RULES)
-        check, ver = zs["chat"](base, zs["VERIFIER"], CHECK_SYS, about + "\n\n" + "".join(
+        check, ver = ask(zs["chat"], base, zs["VERIFIER"], CHECK_SYS, about + "\n\n" + "".join(
             f"Take {i + 1}a: {t['plaque']}\nTake {i + 1}b: {t['spoken']}\n" for i, t in enumerate(new)) + (
             "\nFor each take, are both its texts factually accurate about this painting, "
             "artist and period? Be strictest about historical context: a neat tie-in to "
@@ -537,6 +716,8 @@ def text_takes(zs, base, meta, takes, todo):
             # the ghost's words need the checker to actually think
             effort=None if "ghost" in {ANGLES[t["angle"]][1] for t in new} else "low")
         verdict = zs["json_object"](check)
+    except RateLimited:  # ...but a spent quota stops the run
+        raise
     except Exception as e:  # one painting failing shouldn't stop the rest
         print(f"plaques: {meta['id']}: {type(e).__name__}: {printable(e)[:120]}")
         return [], None, None, []
@@ -618,6 +799,8 @@ def write_take(zs, base, path, angle):
             return False
         try:
             take, verdict = vision_take(zs, base, angle, png)
+        except RateLimited:
+            raise
         except Exception as e:
             print(f"plaques: {meta['id']}: angle {angle}: {type(e).__name__}: {printable(e)[:120]}")
             return True
@@ -688,12 +871,20 @@ def main():
                     help="with --plaques: drop every take of angle N first, so it regenerates")
     ap.add_argument("--only-angle", type=int, action="append", choices=range(VARIANTS), metavar="N",
                     help="with --plaques: only write takes of angle N")
+    ap.add_argument("--per-hour", type=int, metavar="N",
+                    default=int(os.environ.get("ZEN_GALLERY_PER_HOUR") or PER_HOUR),
+                    help="with --plaques: at most N gateway calls in any trailing hour "
+                         f"(default {PER_HOUR}, or $ZEN_GALLERY_PER_HOUR)")
     ap.add_argument("--budget", type=int, metavar="N",
                     help=f"with --plaques: write at most N takes (default {BUDGET}; "
                          "none with --only-angle)")
     args = ap.parse_args()
     if (args.redo_angle or args.only_angle or args.budget is not None) and not args.plaques:
         ap.error("--redo-angle/--only-angle/--budget go with --plaques")
+    if args.per_hour < 1:
+        ap.error("--per-hour must be at least 1")
+    global PACER
+    PACER = Pacer(args.per_hour)
     os.makedirs(CACHE, exist_ok=True)
     if args.if_stale and os.path.exists(STAMP) and time.time() - os.path.getmtime(STAMP) < args.if_stale * 3600:
         return
@@ -702,7 +893,12 @@ def main():
             if args.redo_angle:
                 drop_angles(set(args.redo_angle))
             budget = args.budget if args.budget is not None else None if args.only_angle else BUDGET
-            plaques(set(args.only_angle or ()), budget)
+            try:
+                plaques(set(args.only_angle or ()), budget)
+            except RateLimited as e:  # takes written so far are on disk (atomic writes)
+                print(f"plaques: gateway rate limit (429), stopping; takes written so far are kept: "
+                      f"{printable(e)}", file=sys.stderr)
+                sys.exit(EX_TEMPFAIL)
         elif args.commons:
             fetch_commons(args.commons, args.pin)
         elif args.add:
