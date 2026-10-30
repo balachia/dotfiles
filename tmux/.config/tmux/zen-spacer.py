@@ -43,6 +43,7 @@ q or C-d quits (same as the blank spacer).
 """
 import collections
 import curses
+import functools
 import glob
 import getpass
 import json
@@ -51,6 +52,7 @@ import os
 import random
 import re
 import socket
+import struct
 import subprocess
 import textwrap
 import sys
@@ -80,6 +82,7 @@ def opt(name):
 class Screen:
     def __init__(self, scr):
         self.scr = scr
+        self.raw, self.shown = {}, {}
         self.resize()
 
     def resize(self):
@@ -91,10 +94,35 @@ class Screen:
     def put(self, y, x, s, color, attr=0):
         # skip the bottom-right cell: writing there makes curses raise
         if 0 <= y < self.h and 0 <= x < self.w and not (y == self.h - 1 and x == self.w - 1):
+            if len(s) == 1 and s >= "\U0001cc00":
+                # Unicode 16 block characters (octants): macOS's libc doesn't
+                # know their width, so curses would blank them. curses gets a
+                # space and refresh() writes the real character around it.
+                self.raw[(y, x)] = (s, color, attr)
+                s = " "
+            else:
+                for i in range(len(s)):
+                    self.raw.pop((y, x + i), None)
             try:
                 self.scr.addstr(y, x, s, curses.color_pair(color + 1) | attr)
             except curses.error:
                 pass
+
+    def refresh(self):
+        # a raw cell gone since last frame is a space to curses both times, so
+        # curses would never repaint it: have it redraw those lines
+        for y in {y for (y, x) in self.shown if (y, x) not in self.raw}:
+            self.scr.redrawln(y, 1)
+        self.scr.refresh()
+        if self.raw:
+            out = []
+            for (y, x), (ch, color, attr) in self.raw.items():
+                sgr = "0;3%d" % color + (";1" if attr & curses.A_BOLD else "") + (";2" if attr & curses.A_DIM else "")
+                out.append(f"\x1b[{y + 1};{x + 1}H\x1b[{sgr}m{ch}")
+            cy, cx = self.scr.getyx()
+            out.append(f"\x1b[0m\x1b[{cy + 1};{cx + 1}H")  # leave things as curses left them
+            os.write(1, "".join(out).encode())
+        self.shown, self.raw = self.raw, {}
 
 
 # ---------------------------------------------------------------- garden
@@ -104,6 +132,7 @@ class Screen:
 GUST_PERIOD = 20.0
 
 
+@functools.lru_cache(maxsize=1024)
 def gusty(bucket):
     return random.Random(bucket).random() < 0.35
 
@@ -271,13 +300,52 @@ class Garden:
         self.moon = (self.WW * 0.8, self.H * 0.14, max(5.0, self.H * 0.045))
         # the tree stands in the yard, in front of the fence (which it hides)
         self.tree = (self.WW * 0.14, self.gy + int((self.H - self.gy) * 0.22))
-        self.dots = set()
+        self.dots, self.owner, self.layer = set(), {}, "far"
         self.paint_sky()
+        self.layer = "near"
         self.paint_fence()
+        self.layer = "far"
         if self.season == "winter":
             self.paint_snow_ground()
         self.paint_tree()
+        # mixed pixels: the fence is near (solid octants), the rest is air
+        self.near = {p for p in self.dots if self.owner.get(p) == "near"}
         self.layout_sign()
+        self.tables()
+
+    def tables(self):
+        """Lookup tables, NES style: what each blade, flower and particle is
+        born with is worked out once per resize (or once per particle), and a
+        frame only computes motion. Same numbers as computing them fresh."""
+        gy, H = self.gy, self.H
+        snowed = self.season == "winter"
+        self.blades = []  # (x, wx, root, height, lean divisor, near)
+        for x in range(self.W):
+            wx = x + self.ox
+            for layer, density in ((0, 0.04), (1, 0.0)) if snowed else ((0, 0.4), (1, 0.2)):
+                if hash01(wx, layer, 7) > density:
+                    continue
+                root = gy + int((H - gy) * (0.15 + 0.85 * hash01(wx, layer, 8)))
+                height = 3 + (root - gy) * 0.28 * (0.6 + 0.8 * hash01(wx, layer, 9))
+                self.blades.append((x, wx, root, height * 0.6 if snowed else height,
+                                    height / 0.15 if snowed else height, root > gy + (H - gy) * 0.55))
+        self.stubble = []  # (x, wx, root, tall)
+        for x in range(0 if snowed else self.W):
+            wx = x + self.ox
+            for k in range(2):
+                if hash01(wx, k, 16) <= 0.18:
+                    self.stubble.append((x, wx, gy + 1 + int((H - gy) * 0.55 * hash01(wx, k, 17)),
+                                         1 + int(3 * hash01(wx, k, 18))))
+        self.flowers = []  # (world x, root, height)
+        for wx in range(0) if snowed else range(self.ox - (self.ox % 9), self.ox + self.W + 9, 9):
+            if hash01(wx, 10) <= (0.4 if self.season == "summer" else 0.12):
+                self.flowers.append((wx + int(hash01(wx, 11) * 8), H - 1 - int(hash01(wx, 12) * (H - gy) * 0.4),
+                                     8 + int(hash01(wx, 13) * 10)))
+        self.drifts = [(0.75 + 0.9 * hash01(k, 40), hash01(k, 41), hash01(k, 42), 18 + 22 * hash01(k, 43))
+                       for k in range(self.WW // 4)]
+        self.drops = [(hash01(i, 30), 40 + 25 * hash01(i, 31), hash01(i, 32), hash01(i, 33))
+                      for i in range(self.WW * self.H // 250)]
+        self.flakes, self.fallen = {}, {}  # particle number -> what it was born with
 
     def layout_sign(self):
         """IN THIS HOST / WE BELIEVE: ... / <user> is user, on a stake in the
@@ -313,6 +381,8 @@ class Garden:
         x = round(wx) - self.ox
         dots = self.dots if dots is None else dots
         if 0 <= x < self.W and 0 <= y < self.H:
+            if dots is self.dots:
+                self.owner[(x, y)] = self.layer
             if b > 0.04 and b > DITHER[y % 64][(x + self.ox) % 64]:
                 dots.add((x, y))
             else:
@@ -355,10 +425,12 @@ class Garden:
                 depth = (y - gy) / max(1, H - gy)
                 self.shade(wx, y, 0.12 + 0.35 * depth + drift)
         top = gy - int(H * 0.08)
+        self.layer = "near"  # snow caps sit on the pickets
         for wx in range(self.ox - 6, self.ox + self.W + 6):
             if wx % 6 < 2:
                 self.shade(wx, top - 1, 1.0)
                 self.shade(wx, top, 1.0)
+        self.layer = "far"
 
     def paint_fence(self):
         """A low picket fence: 2-dot pickets every 6 dots, two rails."""
@@ -551,12 +623,11 @@ class Garden:
         span = self.WW + 40
         # distance the wind has carried things so far (wind_travel's smooth part)
         travel = 0.65 * now - 3.15 * math.cos(now / 9.0) - 0.54 * math.cos(now / 2.7 + 1.3)
-        for k in range(self.WW // 4):
-            if wd < 0.75 + 0.9 * hash01(k, 40):
+        for k, (thresh, depth, h0, speed) in enumerate(self.drifts):
+            if wd < thresh:
                 continue
-            depth = hash01(k, 41)
             y = gy + 1 + int((H - gy - 2) * depth) - round(abs(math.sin(now * 3 + k)) * 2)
-            x = (hash01(k, 42) * span + travel * (18 + 22 * hash01(k, 43))) % span - 20 - self.ox
+            x = (h0 * span + travel * speed) % span - 20 - self.ox
             for i in range(1 + int(2 * depth)):  # nearer flakes streak longer
                 px = round(x) - i
                 if 0 <= px < self.W:
@@ -566,14 +637,12 @@ class Garden:
         """Light rain: short streaks slanting with the wind, looping down the
         window, and little splash ticks flickering in the grass."""
         slant = 0.25 + 0.35 * wd
-        n = self.WW * self.H // 250
-        for i in range(n):
-            wx0 = hash01(i, 30) * (self.WW + self.H * slant) - self.H * slant
-            speed = 40 + 25 * hash01(i, 31)
-            y = (now * speed + hash01(i, 32) * (self.H + 20)) % (self.H + 20) - 10
+        for h30, speed, h32, h33 in self.drops:
+            wx0 = h30 * (self.WW + self.H * slant) - self.H * slant
+            y = (now * speed + h32 * (self.H + 20)) % (self.H + 20) - 10
             for k in range(3):
                 x = round(wx0 + slant * (y - k)) - self.ox
-                if 0 <= x < self.W and 0 <= y - k < self.gy + (self.H - self.gy) * hash01(i, 33):
+                if 0 <= x < self.W and 0 <= y - k < self.gy + (self.H - self.gy) * h33:
                     dots.add((x, round(y - k)))
         tick = int(now * 8)
         for i in range(self.W // 6):
@@ -583,14 +652,19 @@ class Garden:
 
     def snow(self, now, dots):
         """Winter: flakes across the whole window, drifting with the wind."""
-        for k in range(int((now - 60) // 0.15), int(now // 0.15) + 1):
+        first = int((now - 60) // 0.15)
+        for k in [k for k in self.flakes if k < first]:
+            del self.flakes[k]
+        for k in range(first, int(now // 0.15) + 1):
             t0 = k * 0.15
-            r = random.Random(k * 31 + 7)
-            x0, vy = r.uniform(-self.WW * 0.3, self.WW), r.uniform(3, 7)
+            if k not in self.flakes:
+                r = random.Random(k * 31 + 7)
+                self.flakes[k] = (r.uniform(-self.WW * 0.3, self.WW), r.uniform(3, 7), 5.0 * r.uniform(0.6, 1.2))
+            x0, vy, drift = self.flakes[k]
             y = vy * (now - t0)
             if y >= self.H:
                 continue
-            x = x0 + 5.0 * r.uniform(0.6, 1.2) * wind_travel(t0, now) + 2 * math.sin(now * 1.5 + k)
+            x = x0 + drift * wind_travel(t0, now) + 2 * math.sin(now * 1.5 + k)
             px = round(x) - self.ox
             if 0 <= px < self.W:
                 dots.add((px, round(y)))
@@ -603,13 +677,21 @@ class Garden:
         if not self.crown_at:
             return
         tx, cy, cr = self.crown_at
-        for k in range(int((now - LEAF_LIFE) // SLOT), int(now // SLOT) + 1):
+        first = int((now - LEAF_LIFE) // SLOT)
+        for k in [k for k in self.fallen if k < first]:
+            del self.fallen[k]
+        for k in range(first, int(now // SLOT) + 1):
             t0 = k * SLOT
-            r = random.Random(k)
-            if r.random() > (0.8 if self.season == "autumn" else 0.3) * wind(t0) or t0 > now:
+            if t0 > now:
                 continue
-            x0, y0 = tx + r.uniform(-cr, cr), cy + r.uniform(-cr * 0.5, cr * 0.5)
-            speed, vy, phase = r.uniform(0.6, 1.2), r.uniform(1.5, 4.0), r.uniform(0, 6.28)
+            if k not in self.fallen:  # None: no leaf left the tree in this slot
+                r = random.Random(k)
+                self.fallen[k] = None if r.random() > (0.8 if self.season == "autumn" else 0.3) * wind(t0) else (
+                    tx + r.uniform(-cr, cr), cy + r.uniform(-cr * 0.5, cr * 0.5),
+                    r.uniform(0.6, 1.2), r.uniform(1.5, 4.0), r.uniform(0, 6.28))
+            if self.fallen[k] is None:
+                continue
+            x0, y0, speed, vy, phase = self.fallen[k]
             x = x0 + 12.0 * speed * wind_travel(t0, now)
             y = y0 + vy * (now - t0) + (2.0 / 1.7) * (math.cos(1.7 * t0 + phase) - math.cos(1.7 * now + phase))
             if x < self.WW and y < self.H - 1:
@@ -617,7 +699,7 @@ class Garden:
 
     def frame(self, now):
         s, H, gy = self.s, self.H, self.gy
-        dots = set(self.dots)
+        dots, near = set(self.dots), set(self.near)  # near: also in dots
         wd = wind(now)
 
         # twinkle: each star goes out briefly, on its own period and phase
@@ -629,35 +711,21 @@ class Garden:
         # leaning with the wind and a wave that rolls across the window. In
         # winter: just a few dead stalks poking through the snow, stiff,
         # barely trembling.
-        snowed = self.season == "winter"
-        for x in range(self.W):
-            wx = x + self.ox
-            for layer, density in ((0, 0.04), (1, 0.0)) if snowed else ((0, 0.4), (1, 0.2)):
-                if hash01(wx, layer, 7) > density:
-                    continue
-                root = gy + int((H - gy) * (0.15 + 0.85 * hash01(wx, layer, 8)))
-                height = 3 + (root - gy) * 0.28 * (0.6 + 0.8 * hash01(wx, layer, 9))
-                lean = (wd * 1.4 + 0.6 * math.sin(now * 1.9 + wx * 0.07)) / height
-                if snowed:
-                    height, lean = height * 0.6, lean * 0.15
-                for i in range(int(height)):
-                    px = x + round(lean * i * i / 2)
-                    if 0 <= px < self.W:
-                        dots.add((px, root - i))
+        for x, wx, root, height, lean_div, front in self.blades:
+            lean = (wd * 1.4 + 0.6 * math.sin(now * 1.9 + wx * 0.07)) / lean_div
+            for i in range(int(height)):
+                px = x + round(lean * i * i / 2)
+                if 0 <= px < self.W:
+                    dots.add((px, root - i))
+                    if front:
+                        near.add((px, root - i))
 
         # stubble: tiny tufts scattered through the back of the yard, each at its
         # own depth (no layers), so the space behind the tall grass isn't bare
-        if not snowed:
-            for x in range(self.W):
-                wx = x + self.ox
-                for k in range(2):
-                    if hash01(wx, k, 16) > 0.18:
-                        continue
-                    root = gy + 1 + int((H - gy) * 0.55 * hash01(wx, k, 17))
-                    tall = 1 + int(3 * hash01(wx, k, 18))
-                    bend = 1 if wd + 0.5 * math.sin(now * 1.9 + wx * 0.07) > 1.1 else 0
-                    for i in range(tall):
-                        dots.add((x + (bend if i == tall - 1 else 0), root - i))
+        for x, wx, root, tall in self.stubble:
+            bend = 1 if wd + 0.5 * math.sin(now * 1.9 + wx * 0.07) > 1.1 else 0
+            for i in range(tall):
+                dots.add((x + (bend if i == tall - 1 else 0), root - i))
 
         winter, summer = self.season == "winter", self.season == "summer"
         if winter:
@@ -671,21 +739,18 @@ class Garden:
 
         # flowers: stems with round heads, nodding in the wind (a few late
         # ones in autumn, none in winter)
-        for wx in range(0) if winter else range(self.ox - (self.ox % 9), self.ox + self.W + 9, 9):
-            if hash01(wx, 10) > (0.4 if summer else 0.12):
-                continue
-            fx = wx + int(hash01(wx, 11) * 8)
-            root = H - 1 - int(hash01(wx, 12) * (H - gy) * 0.4)
-            height = 8 + int(hash01(wx, 13) * 10)
+        for fx, root, height in self.flowers:
             lean = (wd + 0.3 * math.sin(now * 1.3 + fx)) * 0.08
-            for i in range(height):
-                dots.add((fx - self.ox + round(lean * i * i / 4), root - i))
+            flower = {(fx - self.ox + round(lean * i * i / 4), root - i) for i in range(height)}
             hx, hy = fx - self.ox + round(lean * height * height / 4), root - height - 1
             for dx in range(-2, 3):
                 for dy in range(-2, 3):
                     if dx * dx + dy * dy <= 4 and (dx, dy) != (0, 0):
-                        dots.add((hx + dx, hy + dy))
+                        flower.add((hx + dx, hy + dy))
+            dots |= flower
+            near |= flower
             dots.discard((hx, hy))  # the flower's center
+            near.discard((hx, hy))
 
         # leaves: little two-dot flecks, tumbling
         for lx, ly, flip in self.leaves(now):
@@ -709,20 +774,14 @@ class Garden:
             for x, y in list(dots):
                 if (x0 <= x <= x1 and y0 <= y <= y1) or (abs(x - (x0 + x1) // 2) <= 1 and y in stake):
                     dots.discard((x, y))
-            for x in range(x0, x1 + 1):
-                dots.update(((x, y0 + 1), (x, y1 - 1)))
-            for y in range(y0 + 1, y1):
-                dots.update(((x0, y), (x1, y)))
-            for y in stake:
-                dots.add(((x0 + x1) // 2, y))
+                    near.discard((x, y))
+            board = {(x, y) for x in range(x0, x1 + 1) for y in (y0 + 1, y1 - 1)}
+            board |= {(x, y) for y in range(y0 + 1, y1) for x in (x0, x1)}
+            board |= {((x0 + x1) // 2, y) for y in stake}
+            dots |= board
+            near |= board
 
-        cells = {}
-        for x, y in dots:
-            if 0 <= x < self.W and 0 <= y < H:
-                key = (y // 4, x // 2)
-                cells[key] = cells.get(key, 0) | Braille.BIT[(x % 2, y % 4)]
-        for (row, col), bits in cells.items():
-            s.put(row, col, chr(0x2800 + bits), self.ink)
+        draw_cells(s, dots, near, self.W, H, self.ink)
 
         if self.sign:
             left, top, bw, bh, lines = self.sign
@@ -967,7 +1026,7 @@ class Coffee:
                 key = (y // 4, x // 2)
                 cells[key] = cells.get(key, 0) | Braille.BIT[(x % 2, y % 4)]
         for (row, col), bits in cells.items():
-            s.put(row, col, chr(0x2800 + bits), self.ink)
+            s.put(row, col, pix(bits), self.ink)
 
         if self.mug:  # the printed label, as real text
             slogan, lines = self.label
@@ -1044,6 +1103,50 @@ DITHER = [[0.75 * bayer(8)[y % 8][x % 8] + 0.25 * _noise.random() for x in range
 BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]  # 4x4 ordered dither
 
 
+# Unicode 16 octants (2x4 solid blocks), indexed by the same bits as braille.
+# 230 live in U+1CD00..; the other 26 patterns are older block elements.
+# Generated from unicodedata 17 so older pythons need no octant names.
+OCTANTS = (
+    " \U0001cea8\U0001cd00\u2598\U0001cd09\U0001cd0a\U0001fbe6\U0001cd0d\U0001ceab\U0001fb82\U0001cd01\U0001cd02\U0001cd0b\U0001cd0c\U0001cd0e\U0001cd0f\U0001cd03\U0001cd04\U0001cd06\U0001cd07\U0001cd10\U0001cd11\U0001cd14\U0001cd15\u259d\U0001cd05\U0001cd08\u2580\U0001cd12\U0001cd13\U0001cd16\U0001cd17"
+    "\U0001cd18\U0001cd19\U0001cd1c\U0001cd1d\U0001cd27\U0001cd28\U0001cd2b\U0001cd2c\U0001cd1a\U0001cd1b\U0001cd1e\U0001cd1f\U0001cd29\U0001cd2a\U0001cd2d\U0001cd2e\U0001fbe7\U0001cd20\U0001cd23\U0001cd24\U0001cd2f\U0001cd30\U0001cd33\U0001cd34\U0001cd21\U0001cd22\U0001cd25\U0001cd26\U0001cd31\U0001cd32\U0001cd35\U0001fb85"
+    "\U0001cea3\U0001cd36\U0001cd39\U0001cd3a\u2596\U0001cd45\U0001cd48\u258c\U0001cd37\U0001cd38\U0001cd3b\U0001cd3c\U0001cd46\U0001cd47\U0001cd49\U0001cd4a\U0001cd3d\U0001cd3e\U0001cd41\U0001cd42\U0001cd4b\U0001cd4c\U0001cd4e\U0001cd4f\U0001cd3f\U0001cd40\U0001cd43\U0001cd44\u259e\U0001cd4d\U0001cd50\u259b"
+    "\U0001cd51\U0001cd52\U0001cd55\U0001cd56\U0001cd61\U0001cd62\U0001cd65\U0001cd66\U0001cd53\U0001cd54\U0001cd57\U0001cd58\U0001cd63\U0001cd64\U0001cd67\U0001cd68\U0001cd59\U0001cd5a\U0001cd5d\U0001cd5e\U0001cd69\U0001cd6a\U0001cd6d\U0001cd6e\U0001cd5b\U0001cd5c\U0001cd5f\U0001cd60\U0001cd6b\U0001cd6c\U0001cd6f\U0001cd70"
+    "\U0001cea0\U0001cd71\U0001cd74\U0001cd75\U0001cd80\U0001cd81\U0001cd84\U0001cd85\U0001cd72\U0001cd73\U0001cd76\U0001cd77\U0001cd82\U0001cd83\U0001cd86\U0001cd87\U0001cd78\U0001cd79\U0001cd7c\U0001cd7d\U0001cd88\U0001cd89\U0001cd8c\U0001cd8d\U0001cd7a\U0001cd7b\U0001cd7e\U0001cd7f\U0001cd8a\U0001cd8b\U0001cd8e\U0001cd8f"
+    "\u2597\U0001cd90\U0001cd93\u259a\U0001cd9c\U0001cd9d\U0001cda0\U0001cda1\U0001cd91\U0001cd92\U0001cd94\U0001cd95\U0001cd9e\U0001cd9f\U0001cda2\U0001cda3\U0001cd96\U0001cd97\U0001cd99\U0001cd9a\U0001cda4\U0001cda5\U0001cda8\U0001cda9\u2590\U0001cd98\U0001cd9b\u259c\U0001cda6\U0001cda7\U0001cdaa\U0001cdab"
+    "\u2582\U0001cdac\U0001cdaf\U0001cdb0\U0001cdbb\U0001cdbc\U0001cdbf\U0001cdc0\U0001cdad\U0001cdae\U0001cdb1\U0001cdb2\U0001cdbd\U0001cdbe\U0001cdc1\U0001cdc2\U0001cdb3\U0001cdb4\U0001cdb7\U0001cdb8\U0001cdc3\U0001cdc4\U0001cdc7\U0001cdc8\U0001cdb5\U0001cdb6\U0001cdb9\U0001cdba\U0001cdc5\U0001cdc6\U0001cdc9\U0001cdca"
+    "\U0001cdcb\U0001cdcc\U0001cdcf\U0001cdd0\u2584\U0001cddb\U0001cdde\u2599\U0001cdcd\U0001cdce\U0001cdd1\U0001cdd2\U0001cddc\U0001cddd\U0001cddf\U0001cde0\U0001cdd3\U0001cdd4\U0001cdd7\U0001cdd8\U0001cde1\U0001cde2\u2586\U0001cde4\U0001cdd5\U0001cdd6\U0001cdd9\U0001cdda\u259f\U0001cde3\U0001cde5\u2588"
+)
+
+PIXELS = "braille"  # @zen-pixels: braille, octant, or mixed (near things solid)
+
+
+def pix(bits, near=False):
+    """One 2x4 cell of dots as a character: braille, or solid octants."""
+    if PIXELS == "octant" or (near and PIXELS == "mixed"):
+        return OCTANTS[bits]
+    return chr(0x2800 + bits)
+
+
+def draw_cells(s, dots, near, w, h, color):
+    """Dots to characters. In mixed mode a cell holding any near dot is drawn
+    solid from its near dots only: the near thing hides what's behind it."""
+    cells, front = {}, {}
+    for x, y in dots:
+        if 0 <= x < w and 0 <= y < h:
+            key = (y // 4, x // 2)
+            cells[key] = cells.get(key, 0) | Braille.BIT[(x % 2, y % 4)]
+    if PIXELS == "mixed":
+        for x, y in near:
+            if 0 <= x < w and 0 <= y < h:
+                key = (y // 4, x // 2)
+                front[key] = front.get(key, 0) | Braille.BIT[(x % 2, y % 4)]
+    for key, bits in cells.items():
+        if key in front:
+            s.put(*key, pix(front[key], near=True), color)
+        else:
+            s.put(*key, pix(bits), color)
+
+
 class Braille:
     """A dot canvas over the whole pane, rendered as braille cells (2x4 dots
     each). Each dot carries a style and a rank; a cell takes the style of its
@@ -1064,8 +1167,142 @@ class Braille:
 
     def render(self, s):
         for (row, col), (bits, _, (color, attr)) in self.cells.items():
-            s.put(row, col, chr(0x2800 + bits), color, attr)
+            s.put(row, col, pix(bits), color, attr)
 
+
+
+# ---------------------------------------------------------------- gallery
+
+GALLERY = os.path.expanduser("~/.cache/zen/gallery")  # filled by zen-gallery.py
+
+
+def read_png(path, max_side=2000):
+    """A non-interlaced 8-bit PNG (gray, gray+alpha, RGB or RGBA) as
+    (width, height, rows of 0..1 luminance). Stdlib only: PNG is zlib."""
+    with open(path, "rb") as f:
+        data = f.read()
+    if not data.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise ValueError("not a PNG")
+    pos, idat, w = 8, [], 0
+    while pos < len(data):
+        n, kind = struct.unpack(">I4s", data[pos:pos + 8])
+        body = data[pos + 8:pos + 8 + n]
+        if kind == b"IHDR":
+            w, h, depth, ctype, _, _, interlace = struct.unpack(">IIBBBBB", body)
+            if depth != 8 or interlace or ctype not in (0, 2, 4, 6) or not (0 < w <= max_side and 0 < h <= max_side):
+                raise ValueError("unsupported PNG")
+            bpp = {0: 1, 2: 3, 4: 2, 6: 4}[ctype]
+        elif kind == b"IDAT":
+            idat.append(body)
+        elif kind == b"IEND":
+            break
+        pos += 12 + n
+    raw = zlib.decompress(b"".join(idat))
+    stride, rows, prev = w * bpp, [], bytearray(w * bpp)
+    for y in range(h):
+        ftype, line = raw[y * (stride + 1)], bytearray(raw[y * (stride + 1) + 1:(y + 1) * (stride + 1)])
+        for i in range(stride):  # undo the row filter
+            a = line[i - bpp] if i >= bpp else 0
+            b, c = prev[i], prev[i - bpp] if i >= bpp else 0
+            if ftype == 1:
+                line[i] = (line[i] + a) & 255
+            elif ftype == 2:
+                line[i] = (line[i] + b) & 255
+            elif ftype == 3:
+                line[i] = (line[i] + (a + b) // 2) & 255
+            elif ftype == 4:
+                pa, pb, pc = abs(b - c), abs(a - c), abs(a + b - 2 * c)
+                line[i] = (line[i] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+        prev = line
+        if ctype in (0, 4):
+            rows.append([line[i] / 255 for i in range(0, stride, bpp)])
+        else:
+            rows.append([(0.299 * line[i] + 0.587 * line[i + 1] + 0.114 * line[i + 2]) / 255
+                         for i in range(0, stride, bpp)])
+    return w, h, rows
+
+
+class Gallery:
+    """A famous public-domain painting, dithered, across the whole window
+    (your work hangs in front of its middle), with a museum caption. The
+    painting is picked per toggle from ~/.cache/zen/gallery (zen-gallery.py
+    fills it), or by @zen-painting (an AIC id or part of a title)."""
+    fps = 1
+
+    def __init__(self, s, side):
+        self.s, self.side = s, side
+        ink = (opt("zen-ink") or "white").lower()
+        self.ink = getattr(curses, f"COLOR_{ink.upper()}", curses.COLOR_WHITE)
+        self.art = self.pick()
+        self.resize()
+
+    def pick(self):
+        metas = []
+        for path in sorted(glob.glob(os.path.join(GALLERY, "*.json"))):
+            try:
+                with open(path) as f:
+                    m = json.load(f)
+                metas.append((m, path[:-5] + ".png"))
+            except (OSError, ValueError):
+                pass
+        want = (opt("zen-painting") or "").lower()
+        chosen = [x for x in metas if want and (want == str(x[0].get("id")) or want in str(x[0].get("title", "")).lower())]
+        pool = chosen or metas
+        if not pool:
+            return None
+        meta, png = random.Random(int(os.environ.get("ZEN_SEED", "0"))).choice(pool)
+        try:
+            w, h, rows = read_png(png)
+        except (OSError, ValueError, zlib.error):
+            return None
+        # stretch the levels (2nd..98th percentile) so dark paintings still read
+        flat = sorted(v for row in rows[::4] for v in row[::4])
+        lo, hi = flat[len(flat) // 50], flat[-len(flat) // 50 - 1]
+        span = max(0.05, hi - lo)
+        rows = [[min(1.0, max(0.0, (v - lo) / span)) ** 1.25 for v in row] for row in rows]  # a bit of midtone contrast
+        caption = [str(meta.get("artist", ""))[:60], str(meta.get("title", ""))[:60], str(meta.get("date", ""))[:40]]
+        return w, h, rows, [re.sub(r"[^\w .,;:'&()\-\u2013\u2014/]", "", c) for c in caption]
+
+    def resize(self):
+        s = self.s
+        self.W, self.H = 2 * s.w, 4 * s.h
+        self.ox, self.WW = s.x0 * 2, s.world_w * 2
+        self.cells = {}
+        if not self.art:
+            return
+        w, h, rows, _ = self.art
+        # a braille dot is cell_h/4 tall by cell_w/2 wide: 1.25 wide-units
+        # tall in a 14x35 cell, so measure y in dot widths to keep the shape
+        geo = tmux("display", "-p", "#{client_cell_width} #{client_cell_height}").split()
+        ay = (int(geo[1]) / 4) / (int(geo[0]) / 2) if len(geo) == 2 and geo[0].isdigit() and int(geo[0]) else 1.0
+        # cover the window (crop the overflow evenly), sampling at dot centres
+        scale = max(self.WW / w, self.H * ay / h)
+        cx, cy = (w - self.WW / scale) / 2, (h - self.H * ay / scale) / 2
+        for y in range(self.H):
+            row = rows[min(h - 1, int(cy + (y + 0.5) * ay / scale))]
+            for x in range(self.W):
+                wx = x + self.ox
+                v = row[min(w - 1, int(cx + (wx + 0.5) / scale))]
+                if v > 0.04 and v > DITHER[y % 64][wx % 64]:
+                    key = (y // 4, x // 2)
+                    self.cells[key] = self.cells.get(key, 0) | Braille.BIT[(x % 2, y % 4)]
+
+    def frame(self, now):
+        s = self.s
+        if not self.art:
+            s.put(s.h // 2, 1, "no paintings yet: run zen-gallery.py", self.ink)
+            return
+        for (row, col), bits in self.cells.items():
+            s.put(row, col, pix(bits), self.ink)
+        if self.side == "right":  # the caption plate, bottom right, on black
+            lines = [l for l in self.art[3] if l]
+            width = min(s.w - 2, max(len(l) for l in lines) + 2)
+            top = s.h - len(lines) - 2
+            for i in range(len(lines) + 2):
+                s.put(top + i, s.w - width - 1, " " * width, self.ink)
+            for i, line in enumerate(lines):
+                s.put(top + 1 + i, s.w - width, line[:width - 2], self.ink,
+                      curses.A_BOLD if i == 0 else getattr(curses, "A_ITALIC", 0) if i == 1 else curses.A_DIM)
 
 
 # ---------------------------------------------------------------- matrix
@@ -1673,6 +1910,8 @@ def main(scr, style, side):
     for c in range(8):
         curses.init_pair(c + 1, c, -1)
     scr.nodelay(True)
+    global PIXELS
+    PIXELS = opt("zen-pixels") if opt("zen-pixels") in ("octant", "mixed") else "braille"
 
     s = Screen(scr)
     if style == "garden":
@@ -1685,6 +1924,8 @@ def main(scr, style, side):
         scene = Coffee(s, side)
     elif style == "matrix":
         scene = Matrix(s, side)
+    elif style == "gallery":
+        scene = Gallery(s, side)
     elif style == "host":
         # host on the left, user on the right: MONST3R | (your work) | AVASHEVKO
         if side == "left":
@@ -1698,7 +1939,7 @@ def main(scr, style, side):
     pane = os.environ.get("TMUX_PANE", "")
     # one tmux call a second: respawn when the style options change, re-center
     # when the width does, and pause while no client can see this window
-    fmt = "#{@zen-style}|#{@zen-spacer}\t#{@zen-width}|#{window_width}\t#{window_id}|#{window_zoomed_flag}"
+    fmt = "#{@zen-style}|#{@zen-spacer}|#{@zen-pixels}\t#{@zen-width}|#{window_width}\t#{window_id}|#{window_zoomed_flag}"
 
     def poll():
         return (tmux("display", "-p", "-t", pane, fmt).split("\t") + ["", ""])[:3]
@@ -1733,7 +1974,7 @@ def main(scr, style, side):
             continue
         scr.erase()
         scene.frame(time.time())
-        scr.refresh()
+        s.refresh()
         time.sleep(1 / scene.fps)
 
 

@@ -6,8 +6,9 @@
 # The center width is [width], else tmux option @zen-width, else 120.
 # What the spacers show is picked by tmux option @zen-style:
 #   blank (default) `cat >/dev/null`, C-d closes one by hand
-#   garden|coffee|matrix|sysrain|host|transit  animations from zen-spacer.py (needs python3 with curses;
+#   garden|coffee|matrix|sysrain|host|transit|gallery  animations from zen-spacer.py (needs python3 with curses;
 #   falls back to blank)
+#   random  one of those, picked once per session
 # or @zen-spacer, a raw command that overrides the style (e.g. `cbonsai -l`).
 # Animated spacers watch both options and respawn themselves when they change,
 # so `prefix : set -g @zen-style matrix` applies live (or `setw` for one
@@ -24,6 +25,13 @@ spacer_cmd() {
   local cmd style
   cmd=$(tmux display -p -t "$1" '#{@zen-spacer}')
   style=$(tmux display -p -t "$1" '#{@zen-style}')
+  if [ "$style" = random ]; then
+    # one pick per session: stable across its windows and re-toggles, and a
+    # new session (or a restarted server) rolls again
+    local styles=(garden coffee matrix sysrain host transit gallery) key
+    key=$(tmux display -p -t "$1" '#{session_id}#{session_created}' | cksum | cut -d' ' -f1)
+    style=${styles[key % ${#styles[@]}]}
+  fi
   if [ -z "$cmd" ] && [ -n "$style" ] && [ "$style" != blank ] \
      && python3 -c 'import curses' 2>/dev/null; then
     cmd="$(dirname "$0")/zen-spacer.py $style"
