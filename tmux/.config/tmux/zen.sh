@@ -9,6 +9,7 @@
 #   garden|coffee|matrix|sysrain|host|transit|gallery|gallery-color  animations from zen-spacer.py (needs python3 with curses;
 #   falls back to blank)
 #   random  one of those, picked once per session
+#   ink  (experimental, not in random) shan shui ridges and drifting cloud curls
 # or @zen-spacer, a raw command that overrides the style (e.g. `cbonsai -l`).
 # Animated spacers watch both options and respawn themselves when they change,
 # so `prefix : set -g @zen-style matrix` applies live (or `setw` for one

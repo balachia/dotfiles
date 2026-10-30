@@ -87,6 +87,7 @@ class Screen:
 
     def resize(self):
         self.h, self.w = self.scr.getmaxyx()
+        self.shown = {}  # the screen was cleared: draw every raw cell afresh
         # where this pane sits in the window, for window-wide ("world") scenes
         geo = tmux("display", "-p", "-t", os.environ.get("TMUX_PANE", ""), "#{pane_left} #{window_width}").split()
         self.x0, self.world_w = (int(geo[0]), int(geo[1])) if len(geo) == 2 else (0, self.w)
@@ -119,14 +120,20 @@ class Screen:
                 pass
 
     def refresh(self):
-        # a raw cell gone since last frame is a space to curses both times, so
-        # curses would never repaint it: have it redraw those lines
-        for y in {y for (y, x) in self.shown if (y, x) not in self.raw}:
-            self.scr.redrawln(y, 1)
         self.scr.refresh()
-        if self.raw:
-            out = []
-            for (y, x), (ch, color, attr) in self.raw.items():
+        out = []
+        # a raw cell gone since last frame is a space to curses both times, so
+        # curses never repaints it: blank it ourselves. (Not by redrawing its
+        # whole line: in a fade most lines lose a cell every frame, and line
+        # redraws flash the background.) Skip cells curses has drawn into.
+        for (y, x) in self.shown:
+            if (y, x) not in self.raw and self.scr.inch(y, x) & curses.A_CHARTEXT == 32:
+                out.append(f"\x1b[{y + 1};{x + 1}H\x1b[0m ")
+        if self.raw or out:
+            for (y, x), cell in self.raw.items():
+                if self.shown.get((y, x)) == cell:
+                    continue  # already on screen: curses leaves it alone too
+                ch, color, attr = cell
                 sgr = color if isinstance(color, str) else (
                     "0;3%d" % color + (";1" if attr & curses.A_BOLD else "") + (";2" if attr & curses.A_DIM else ""))
                 out.append(f"\x1b[{y + 1};{x + 1}H\x1b[{sgr}m{ch}")
@@ -1182,6 +1189,166 @@ class Braille:
 
 
 
+# ---------------------------------------------------------------- ink
+
+def brush(dots, pts, width, seed, fray=0.0, reveal=1.0):
+    """Lay a brush stroke along pts (dot coordinates) into dots. width(t)
+    gives the stroke's width in dots at t (0..1 along it). Dry brush: the
+    width is split into bristles, each running out of ink at its own point:
+    fray 0 inks every bristle to the end, toward 1 they give out earlier and
+    skip, so the stroke breaks into streaks (feibai, "flying white").
+    reveal < 1 draws only the start, for a stroke being painted."""
+    seg = [math.hypot(x1 - x0, y1 - y0) for (x0, y0), (x1, y1) in zip(pts, pts[1:])]
+    total = sum(seg) or 1.0
+    bristles = 6
+    runout = [1 - fray * hash01(seed, b, 1) for b in range(bristles)]
+    s = 0.0
+    for (x0, y0), (x1, y1), n in zip(pts, pts[1:], seg):
+        if n == 0:
+            continue
+        nx, ny = -(y1 - y0) / n, (x1 - x0) / n
+        for i in range(max(1, int(n * 2))):
+            t = (s + n * i / max(1, int(n * 2))) / total
+            if t > reveal:
+                return
+            x, y = x0 + (x1 - x0) * i / max(1, int(n * 2)), y0 + (y1 - y0) * i / max(1, int(n * 2))
+            w = width(t)
+            steps = max(1, int(w * 2))
+            for j in range(steps + 1):
+                v = j / steps - 0.5                       # -0.5..0.5 across
+                b = min(bristles - 1, int((v + 0.5) * bristles))
+                if t > runout[b] or (fray and hash01(seed, b, int(t * 24)) < 0.35 * fray):
+                    continue
+                dots.add((round(x + v * w * nx), round(y + v * w * ny)))
+        s += n
+
+
+def curl_path(cx, cy, r_out, turns, rot, tail, lean, ay=1.0, steps_per_turn=40):
+    """A cloud curl: a log spiral wound tight at the head (centre) opening out
+    to radius r_out, then a tail streaming off at angle lean (radians), in dot
+    coordinates (y scaled by 1/ay so it looks round in tall cells). From the
+    head outward."""
+    big = 2 * math.pi * turns
+    k = math.log(1 / 0.12) / big                        # inner radius 12% of outer
+    pts = []
+    for i in range(int(turns * steps_per_turn) + 1):
+        th = big * i / (turns * steps_per_turn)
+        r = r_out * math.exp(-k * (big - th))
+        pts.append((cx + r * math.cos(th + rot), cy - r * math.sin(th + rot) / ay))
+    # the tail leaves the outer end along its tangent and eases toward lean
+    x, y = pts[-1]
+    (px, py) = pts[-2]
+    ang = math.atan2(-(y - py) * ay, x - px)
+    for i in range(int(tail)):
+        ang += (lean - ang) * 0.1 + 0.03 * math.sin(i * 0.17 + cx * 0.05)
+        x, y = x + math.cos(ang), y - math.sin(ang) / ay
+        pts.append((x, y))
+    return pts
+
+
+class Ink:
+    """Shan shui, in light ink on the dark ground (a stone rubbing more than a
+    scroll): mountain ridges in layers, each inked at its crest and fading
+    down into blank mist, the nearer ones darker; cloud curls drifting on the
+    shared wind, winding as they go, painted on as they appear and drying to
+    streaks before they dissolve; a red seal in the corner."""
+    fps = 6
+    LIFE = 50.0     # seconds a curl lives
+    SLOT = 3.0      # a curl may be born every SLOT seconds
+
+    def __init__(self, s, side):
+        self.s, self.side = s, side
+        self.seed = int(os.environ.get("ZEN_SEED", "0"))
+        ink = (opt("zen-ink") or "white").lower()
+        self.ink = getattr(curses, f"COLOR_{ink.upper()}", curses.COLOR_WHITE)
+        geo = tmux("display", "-p", "#{client_cell_width} #{client_cell_height}").split()
+        self.ay = (int(geo[1]) / 4) / (int(geo[0]) / 2) if len(geo) == 2 and geo[0].isdigit() and int(geo[0]) else 1.25
+        self.resize()
+
+    # per layer: where its mist line sits, how high its peaks reach above
+    # that (fractions of the height), how much ink, how far the ink runs down
+    LAYERS = ((0.58, 0.46, 0.42, 0.075), (0.74, 0.32, 0.62, 0.065), (0.93, 0.22, 0.88, 0.06))
+
+    def peaks(self, layer):
+        """Peaks of a ridge layer as (world x, height, half-width): a few tall
+        pointed ones, the way shan shui stacks mountains, not rolling hills."""
+        r = random.Random(self.seed * 10 + layer)
+        out, wx = [], -r.uniform(0, 60)
+        while wx < self.WW + 60:
+            out.append((wx, r.uniform(0.35, 1.0), r.uniform(14, 34)))
+            wx += r.uniform(55, 150)
+        return out
+
+    def ridge(self, layer, wx):
+        """Crest (dot row) of a ridge layer at world x."""
+        base, reach = self.LAYERS[layer][:2]
+        # rounded tops, steep flanks: shan shui peaks rise like fingers
+        top = max((h * math.exp(-(abs(wx - px) / w) ** 2.2) for px, h, w in self.ridges[layer]), default=0)
+        jag = 0.03 * math.sin(wx * 0.31 + layer) + 0.02 * math.sin(wx * 0.77)
+        return self.H * (base - reach * (top + jag * top))
+
+    def resize(self):
+        s = self.s
+        self.W, self.H = 2 * s.w, 4 * s.h
+        self.ox, self.WW = s.x0 * 2, s.world_w * 2
+        self.ridges = [self.peaks(layer) for layer in range(3)]
+        self.dots, self.near = set(), set()
+        # far to near: each ridge hides what's behind it, ink heaviest at the
+        # crest and thinning down into mist (liubai: the mist is unpainted)
+        for layer, (_, _, ink, fade) in enumerate(self.LAYERS):
+            for x in range(self.W):
+                wx = x + self.ox
+                top = int(self.ridge(layer, wx))
+                for y in range(max(0, top), self.H):
+                    self.dots.discard((x, y))
+                    self.near.discard((x, y))
+                    # the ink runs further down some flanks than others
+                    d = (y - top) / (self.H * fade * (0.7 + 0.6 * hash01(wx // 6, layer, 50)))
+                    b = ink * math.exp(-d * d)
+                    if b > 0.04 and b > DITHER[y % 64][wx % 64]:
+                        self.dots.add((x, y))
+                        if layer == 2:
+                            self.near.add((x, y))
+        self.born = {}
+
+    def curls(self, now, dots):
+        first = int((now - self.LIFE) // self.SLOT)
+        for k in [k for k in self.born if k < first]:
+            del self.born[k]
+        for k in range(first, int(now // self.SLOT) + 1):
+            t0 = k * self.SLOT
+            if t0 > now:
+                continue
+            if k not in self.born:
+                r = random.Random(k * 7919 + 13)
+                band = r.choice((0, 1, 1, 2))   # drift in the mist band of a ridge layer
+                self.born[k] = None if r.random() > 0.5 else (
+                    r.uniform(-0.2, 1.0) * self.WW, band, r.uniform(10, 22), r.uniform(1.4, 2.4),
+                    r.uniform(0, 6.28), r.choice((-1, 1)) * r.uniform(0.12, 0.3), r.uniform(14, 32),
+                    r.uniform(0.7, 1.3), r.uniform(2.0, 3.6))
+            if self.born[k] is None:
+                continue
+            x0, band, size, turns, rot0, spin, tail, speed, width = self.born[k]
+            age = now - t0
+            wx = x0 + 6.0 * speed * wind_travel(t0, now)
+            y = self.H * (self.LAYERS[band][0] - 0.06) - size / self.ay
+            reveal = min(1.0, age / 5.0)                       # painted on
+            fray = clamp((age - self.LIFE * 0.55) / (self.LIFE * 0.4), 0.0, 1.0)  # dries out
+            pts = curl_path(wx - self.ox, y, size, turns, rot0 + spin * age, tail, math.pi * 0.95, self.ay)
+            brush(dots, pts, lambda t, w=width: w * (0.35 + 0.65 * math.sin(math.pi * min(1.0, 0.15 + t * 1.1))),
+                  k, fray, reveal)
+
+    def frame(self, now):
+        s = self.s
+        dots, near = set(self.dots), set(self.near)
+        self.curls(now, dots)
+        draw_cells(s, dots, near, self.W, self.H, self.ink)
+        if self.side == "right" and s.w > 8 and s.h > 4:  # the seal: zen, in red
+            for dy in range(2):
+                s.put(s.h - 3 + dy, s.w - 6, "    ", curses.COLOR_RED, curses.A_REVERSE)
+            s.put(s.h - 3, s.w - 5, "\u7985", curses.COLOR_RED, curses.A_REVERSE | curses.A_BOLD)
+
+
 # ---------------------------------------------------------------- gallery
 
 GALLERY = os.path.expanduser("~/.cache/zen/gallery")  # filled by zen-gallery.py
@@ -1293,6 +1460,11 @@ def srgb_lin(c):
     return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
 
 
+def lin_srgb(c):
+    c = clamp(c, 0.0, 1.0)
+    return round(255 * (12.92 * c if c <= 0.0031308 else 1.055 * c ** (1 / 2.4) - 0.055))
+
+
 def oklab(r, g, b):
     """Linear sRGB (0..1) to Oklab: L lightness, a/b colour, perceptually even."""
     l = (0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b) ** (1 / 3)
@@ -1322,6 +1494,20 @@ def dots4(states):
 
 BAYER2 = [[0, 2], [3, 1]]
 DOT_ORDER = [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (0, 3), (1, 3)]  # braille order
+
+
+def plaque_words(png, pick=0):
+    """One take on a painting: wall text and the critic's version
+    (zen-gallery.py --plaques). A painting has several; pick chooses."""
+    try:
+        with open(png[:-4] + ".plaque.json") as f:
+            words = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    takes = words.get("takes") or [words]  # (the one-take format)
+    take = takes[pick % len(takes)] if takes else {}
+    return {k: re.sub(r"[^\w .,;:'!?()&\-\u2013\u2014/\"]", "", str(take.get(k, "")))[:400]
+            for k in ("plaque", "critic")}
 
 
 class Gallery:
@@ -1369,6 +1555,8 @@ class Gallery:
             self.period = 0.0  # a chosen painting stays
         self.slot = int(time.time() // self.period) if self.period else 0
         self.respawn = False
+        self.born = time.time()
+        self.words, self.words2 = {}, {}
         self.art = self.pick()
         ink = (opt("zen-ink") or (self.art and self.art[4]) or "white").upper()
         if ink == "RANDOM":
@@ -1380,6 +1568,8 @@ class Gallery:
     def pick(self):
         metas = []
         for path in sorted(glob.glob(os.path.join(GALLERY, "*.json"))):
+            if path.endswith(".plaque.json"):
+                continue
             try:
                 with open(path) as f:
                     m = json.load(f)
@@ -1431,6 +1621,15 @@ class Gallery:
         span = max(0.05, hi - lo)
         rows = [[min(1.0, max(0.0, (v - lo) / span)) ** 1.25 for v in row] for row in rows]  # a bit of midtone contrast
         caption = [str(meta.get("artist", ""))[:60], str(meta.get("title", ""))[:60], str(meta.get("date", ""))[:40]]
+        # a different take each time it comes around (or each toggle)
+        take = self.slot // max(1, len(pool)) if self.period else seed
+        self.words = plaque_words(png, take)
+        self.words2 = {}
+        if self.mode == "whole" and self.side == "left":  # the pendant opposite, for the docent
+            for j in range(1, len(pool)):
+                if tall(pool[(idx + j) % len(pool)]):
+                    self.words2 = plaque_words(pool[(idx + j) % len(pool)][1], take)
+                    break
         return (w, h, rows, [re.sub(r"[^\w .,;:'&()\-\u2013\u2014/]", "", c) for c in caption],
                 painting_ink(png[:-4] + "-color.png"))
 
@@ -1506,14 +1705,24 @@ class Gallery:
           misses by is passed on to the next cells (Floyd-Steinberg), so
           neighbouring dots mix toward the true hue the way Seurat's do."""
         cw, ch, lin = self.rgb
-        pal = [(n, rgb, oklab(*rgb)) for n, rgb in xterm256()]
+        # inks: the 256-colour cube, and/or the terminal's own 16 (e.g. an
+        # ansil16 palette, made to read on its background); @zen-gallery-palette
+        # 256 | ansi | both | rgb (24-bit: every cell its exact colour, no
+        # palette at all), default both on a light background, 256 on dark
+        which = opt("zen-gallery-palette") or ("both" if self.light else "256")
+        pal = [(n, rgb, oklab(*rgb)) for n, rgb in xterm256()] if which != "ansi" else []
+        if which in ("ansi", "both") and TERM_PALETTE:
+            bgl = oklab(*self.bg)
+            pal += [(n, rgb, oklab(*rgb)) for n, rgb in sorted(TERM_PALETTE.items())
+                    if sum((a - b) ** 2 for a, b in zip(oklab(*rgb), bgl)) > 0.01]  # not the background itself
+        pal = pal or [(n, rgb, oklab(*rgb)) for n, rgb in xterm256()]
         default = 0.05 if self.light else 0.3  # toward paper, blending just grays the inks
         try:
             blend = clamp(float(opt("zen-gallery-blend") or default), 0.0, 0.95)
         except ValueError:
             blend = default
         bg = self.bg
-        depth = 0.2 if self.light else 1.0  # on paper the inks are deep versions of the colours
+        depth = 0.3 if self.light else 1.0  # on paper the inks are deep versions of the colours
         rows_, cols_ = self.H // 4, self.W // 2
         err = [[(0.0, 0.0, 0.0)] * (cols_ + 2) for _ in range(rows_ + 2)]
         memo = {}
@@ -1542,6 +1751,9 @@ class Gallery:
                 if not bits:  # nothing drawn here: carry the colour on untouched
                     err[row][col + 1] = tuple(err[row][col + 1][i] + (target[i] - (1 - blend) * full[i] - blend * bg[i]) for i in range(3))
                     continue
+                if which == "rgb":  # truecolor: no matching, nothing left over to carry
+                    self.ccells[(row, col)] = (self.glyph(bits), "0;38;2;%d;%d;%d" % tuple(lin_srgb(v) for v in target))
+                    continue
                 key = tuple(round(v * 48) for v in target)
                 if key not in memo:
                     tl = oklab(*target)
@@ -1555,6 +1767,94 @@ class Gallery:
 
     def glyph(self, bits):
         return OCTANTS[bits] if self.octant else chr(0x2800 + bits)
+
+    # the critic: 16x16 pixels (octants: 8 columns x 4 rows), a round little
+    # man under a big bowler, all moustache. e = eye; o = only while talking
+    # (the moustache stays put; a little mouth opens under it)
+    CRITIC = [
+        "....XXXXXXXX....",
+        "...XXXXXXXXXX...",
+        "...XXXXXXXXXX...",
+        "...XXXXXXXXXX...",
+        ".XXXXXXXXXXXXXX.",
+        "...X........X...",
+        "...X..e..e..X...",
+        "...X........X...",
+        "...X.XXXXXX.X...",
+        "...X...oo...X...",
+        "....X......X....",
+        ".....XXXXXX.....",
+        "......X..X......",
+        "....XX.XX.XX....",
+        "...XXXXXXXXXX...",
+        "..XXXXXXXXXXXX..",
+    ]
+    TYPE_RATE = 24.0   # characters a second
+
+    def critic_cells(self, mouth, look, blink):
+        bits = {}
+        for y, line in enumerate(self.CRITIC):
+            for x, c in enumerate(line):
+                on = c == "X" or (c == "o" and mouth) or (c == "c" and not mouth)
+                if c == "e" and not blink:
+                    x, on = x + look, True       # eyes shift as he looks around
+                if on:
+                    key = (y // 4, x // 2)
+                    bits[key] = bits.get(key, 0) | Braille.BIT[(x % 2, y % 4)]
+        return bits
+
+    def docent(self, now):
+        """Draw the plaque or the critic (@zen-gallery-docent: critic, plaque
+        or none) along the bottom of the left panel. The critic types out his
+        take, mouth flapping, then stands looking around the room."""
+        kind = opt("zen-gallery-docent") or "critic"
+        if kind not in ("plaque", "critic") or self.side != "left":
+            return False
+        # his painting, then (pendants) the one across the room, with a pause
+        texts = [t for t in (self.words.get(kind), self.words2.get(kind)) if t]
+        if not texts:
+            return False
+        s = self.s
+        t = now - ((self.slot * self.period + self.FADE + 1) if self.period else self.born + 2)
+        which = 0
+        for i, txt in enumerate(texts[:-1]):
+            span = len(txt) / self.TYPE_RATE + 5.0   # typed, then left to read
+            if t >= span:
+                t -= span
+                which = i + 1
+        text = texts[which]
+        shown = int(t * self.TYPE_RATE) if t > 0 else 0
+        sprite = 9 if kind == "critic" else 0
+        width = max(10, s.w - sprite - 4)
+        lines = textwrap.wrap(text, width)
+        # he stands at the very bottom; the line being typed comes out at his
+        # moustache, and finished lines scroll up above it, teletype style
+        base = s.h - 4                          # his top row (he's 4 rows tall)
+        say = base + 2 if kind == "critic" else s.h - 2   # the row his words come out on
+        upto, cur = shown, 0
+        for i, line in enumerate(lines):        # which line is being typed, and how far
+            if upto <= len(line) or i == len(lines) - 1:
+                cur = i
+                break
+            upto -= len(line) + 1
+        visible = range(max(0, cur - 5), cur + 1)
+        if kind == "critic":
+            for r in range(base, s.h):          # a patch of wall for him to stand on
+                s.put(r, 0, " " * sprite, self.ink)
+        for i in visible:
+            row = say - (cur - i)
+            s.put(row, sprite, " " * (s.w - sprite - 1), self.ink)
+            s.put(row, sprite + 2, lines[i] if i < cur else lines[i][:max(0, upto)], self.ink,
+                  getattr(curses, "A_ITALIC", 0) if kind == "plaque" else 0)
+        typing = 0 < shown < len(text)
+        if kind == "critic":
+            mouth = typing and int(now * 8) % 2 == 0
+            phase = int(now // 2.5)
+            look = (1 if which else 0) if typing else (-1, 0, 1, 0)[int(hash01(phase, 61) * 4)]  # across, at the pendant
+            blink = (now % 4.7) < 0.15
+            for (row, col), bits in self.critic_cells(mouth, look, blink).items():
+                s.put(base + row, 1 + col, OCTANTS[bits], self.ink)
+        return typing
 
     def fade(self, now):
         """1 = fully shown; toward 0 at the ends of a rotation slot."""
@@ -1590,10 +1890,16 @@ class Gallery:
                     s.put_sgr(row, col, ch, sgr)
             for (row, col), cell in self.cells.items():
                 s.put(row, col, cell if self.dots else self.glyph(cell), self.ink, self.attr)
-        if self.side == "right" or self.mode == "whole":  # the caption plate, bottom outer corner
+        speaking = self.docent(now) if k >= 1 else False
+        if self.period and k >= 1:
+            self.fps = 12 if speaking else 4   # the typewriter; then blinks and glances
+        elif not self.period:
+            self.fps = 12 if speaking else 4 if self.words else 1
+        docent_here = self.side == "left" and self.words and (opt("zen-gallery-docent") or "critic") != "none"
+        if self.side == "right" or self.mode == "whole":  # the caption plate, an outer corner
             lines = [l for l in self.art[3] if l]
             width = min(s.w - 2, max(len(l) for l in lines) + 2)
-            top = s.h - len(lines) - 2
+            top = 0 if docent_here else s.h - len(lines) - 2   # top left if the docent has the bottom
             left = s.w - width - 1 if self.side == "right" else 1
             for i in range(len(lines) + 2):
                 s.put(top + i, left, " " * width, self.ink)
@@ -2223,6 +2529,8 @@ def main(scr, style, side):
         scene = Matrix(s, side)
     elif style in ("gallery", "gallery-color"):
         scene = Gallery(s, side, color=style == "gallery-color")
+    elif style == "ink":
+        scene = Ink(s, side)
     elif style == "host":
         # host on the left, user on the right: MONST3R | (your work) | AVASHEVKO
         if side == "left":
