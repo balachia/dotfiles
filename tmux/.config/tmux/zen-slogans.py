@@ -27,6 +27,7 @@ import re
 import runpy
 import socket
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -37,7 +38,12 @@ STORE = os.path.join(CACHE, "slogans.json")
 LOG = os.path.join(CACHE, "slogans.log")
 STAMP = os.path.join(CACHE, "slogans.stamp")
 VK = os.path.expanduser("~/.config/llmgw/vk")
-GATEWAYS = ["http://127.0.0.1:4010", "http://10.7.15.20:4010"]  # this host's, then appa's
+# Only this host's own gateway. No fallback to another host's (appa's
+# 10.7.15.20 was one): the key would go to it in cleartext, and on a foreign
+# network (a laptop away from home) to whatever answers at that address; and
+# a key is only valid on the gateway that issued it anyway. No local gateway:
+# skip this run.
+GATEWAYS = ["http://127.0.0.1:4010"]
 GENERATOR = "deepseek/deepseek-flash"
 VERIFIER = "zai/glm-5.3"
 PER_BUCKET = 6      # candidates asked for per run
@@ -96,10 +102,37 @@ SPECS = {
 }
 
 
+# raw LLM text (basis, the verifier's reason, error bodies) reaches the log
+# and the terminal: strip C0/C1 controls (ESC starts title/clipboard (OSC 52)
+# sequences) and bidi overrides first
+CONTROLS = re.compile("[\x00-\x08\x0b-\x1f\x7f-\x9f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]")
+
+
+def printable(s):
+    """s with control characters and bidi controls removed (tab/newline/CR as a space)."""
+    return CONTROLS.sub("", re.sub("[\t\n\r]", " ", str(s)))
+
+
+def write_atomic(path, text):
+    """text to path: a fresh temp file in the same dir, then a rename, so
+    overlapping runs never share or half-write a temp file."""
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".", prefix="." + os.path.basename(path) + ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        raise
+
+
 def log(msg):
     os.makedirs(CACHE, exist_ok=True)
     with open(LOG, "a") as f:
-        f.write(f"{datetime.datetime.now().isoformat(timespec='seconds')} {msg}\n")
+        f.write(f"{datetime.datetime.now().isoformat(timespec='seconds')} {printable(msg)}\n")
 
 
 def gateway():
@@ -229,7 +262,7 @@ def run_bucket(base, name, spec, builtin, store, dry):
     text, gen_model = chat(base, GENERATOR, gen_sys, gen_user, 1.0)
     cands = []
     for c in json_array(text):
-        s, basis = clean(c.get("slogan", "")), " ".join(str(c.get("basis", "")).split())[:200]
+        s, basis = clean(c.get("slogan", "")), printable(" ".join(str(c.get("basis", "")).split()))[:200]
         s = s and decap(s, basis)
         if not s:
             log(f"{name}: reject (format) {str(c.get('slogan'))[:80]!r}")
@@ -254,7 +287,7 @@ def run_bucket(base, name, spec, builtin, store, dry):
             log(f"{name}: reject (verifier) {c['slogan']!r} [{c['basis']}] -- {reason}")
     if dry:
         for k in kept:
-            print(f"  + {name}: {k['slogan']}  [{k['basis']}]")
+            print(printable(f"  + {name}: {k['slogan']}  [{k['basis']}]"))
     return kept
 
 
@@ -299,10 +332,7 @@ def main():
 
     if not args.dry_run:
         os.makedirs(CACHE, exist_ok=True)
-        tmp = STORE + ".tmp"
-        with open(tmp, "w") as f:
-            json.dump(store, f, indent=1)
-        os.replace(tmp, STORE)
+        write_atomic(STORE, json.dumps(store, indent=1))
         with open(STAMP, "w") as f:
             f.write(datetime.datetime.now().isoformat())
 

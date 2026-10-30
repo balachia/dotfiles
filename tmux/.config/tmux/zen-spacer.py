@@ -1373,32 +1373,68 @@ class Ink:
 # ---------------------------------------------------------------- gallery
 
 GALLERY = os.path.expanduser("~/.cache/zen/gallery")  # filled by zen-gallery.py
+# which takes each painting has had: {painting id: [angle, ...] (most recent
+# last), "_slot": {painting id: slot key of that last entry}}. Kept beside the
+# gallery dir, not in it: zen-gallery.py reads every *.json there as a painting.
+SHOWN = os.path.expanduser("~/.cache/zen/gallery-shown.json")
 
 
-def read_png(path, max_side=2000, rgb=False):
+def read_png(path, max_side=2000, rgb=False, max_pixels=1_200_000):
     """A non-interlaced 8-bit PNG (gray, gray+alpha, RGB or RGBA) as
     (width, height, rows of 0..1 luminance), or of (r, g, b) 0..255 tuples
-    with rgb=True. Stdlib only: PNG is zlib."""
+    with rgb=True. Stdlib only: PNG is zlib.
+    The cache is fed from the network, so anything malformed (truncated,
+    no IHDR first, short or oversized pixel data) is a ValueError, and the
+    pixel data is only ever inflated to the size the header says (no
+    decompression bombs). Our paintings are <= ~600 px wide: max_pixels
+    (600 x 2000) bounds the decode time too."""
     with open(path, "rb") as f:
+        if os.fstat(f.fileno()).st_size > 32 << 20:
+            raise ValueError("PNG too large")
         data = f.read()
     if not data.startswith(b"\x89PNG\r\n\x1a\n"):
         raise ValueError("not a PNG")
-    pos, idat, w = 8, [], 0
-    while pos < len(data):
+    pos, idat, hdr = 8, [], None
+    while True:
+        if pos + 12 > len(data):
+            raise ValueError("truncated PNG")
         n, kind = struct.unpack(">I4s", data[pos:pos + 8])
+        if pos + 12 + n > len(data):
+            raise ValueError("truncated PNG chunk")
         body = data[pos + 8:pos + 8 + n]
+        if hdr is None and kind != b"IHDR":
+            raise ValueError("PNG without IHDR first")
         if kind == b"IHDR":
+            if hdr is not None or n != 13:
+                raise ValueError("bad IHDR")
             w, h, depth, ctype, _, _, interlace = struct.unpack(">IIBBBBB", body)
-            if depth != 8 or interlace or ctype not in (0, 2, 4, 6) or not (0 < w <= max_side and 0 < h <= max_side):
+            if (depth != 8 or interlace or ctype not in (0, 2, 4, 6) or not (0 < w <= max_side and 0 < h <= max_side)
+                    or w * h > max_pixels):
                 raise ValueError("unsupported PNG")
-            bpp = {0: 1, 2: 3, 4: 2, 6: 4}[ctype]
+            hdr, bpp = (w, h), {0: 1, 2: 3, 4: 2, 6: 4}[ctype]
         elif kind == b"IDAT":
             idat.append(body)
         elif kind == b"IEND":
             break
         pos += 12 + n
-    raw = zlib.decompress(b"".join(idat))
-    stride, rows, prev = w * bpp, [], bytearray(w * bpp)
+    stride = w * bpp
+    need = h * (stride + 1)  # each row: a filter byte, then the pixels
+    d = zlib.decompressobj()
+    try:
+        raw = d.decompress(b"".join(idat), need)
+        # all that's left may be the stream's end (checksum); more pixels isn't
+        tail = d.unconsumed_tail
+        while tail:
+            if d.decompress(tail, 1):
+                raise ValueError("PNG data larger than its header says")
+            if len(d.unconsumed_tail) >= len(tail):
+                raise ValueError("bad PNG data")
+            tail = d.unconsumed_tail
+    except zlib.error as e:
+        raise ValueError(f"bad PNG data: {e}") from None
+    if len(raw) != need:
+        raise ValueError("PNG data shorter than its header says")
+    rows, prev = [], bytearray(stride)
     for y in range(h):
         ftype, line = raw[y * (stride + 1)], bytearray(raw[y * (stride + 1) + 1:(y + 1) * (stride + 1)])
         for i in range(stride):  # undo the row filter
@@ -1533,6 +1569,86 @@ def plaque_words(png, pick=0):
     return out
 
 
+def plaque_angles(png):
+    """Each take's angle, by take index (None: a take with nothing to say)."""
+    try:
+        with open(png[:-4] + ".plaque.json") as f:
+            n = len(json.load(f).get("takes") or [1])
+    except (OSError, ValueError, AttributeError, TypeError):
+        return []
+    return [w["angle"] if w.get("plaque") else None for w in (plaque_words(png, i) for i in range(n))]
+
+
+def shown_read():
+    """The shown-takes memory; {} when missing or unreadable."""
+    try:
+        with open(SHOWN) as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def shown_history(shown, pid, slot):
+    """The angles this painting had shown before this slot began (if it was
+    already recorded in this slot, that entry is this showing's own)."""
+    hist = [a for a in shown.get(pid, []) if isinstance(a, int)] if isinstance(shown.get(pid), list) else []
+    if hist and (shown.get("_slot") or {}).get(pid) == slot:
+        hist = hist[:-1]
+    return hist
+
+
+def shown_record(entries, slot):
+    """Append each (painting id, angle) once per slot; atomic (tmp + rename)."""
+    shown = shown_read()
+    slots = shown.get("_slot") if isinstance(shown.get("_slot"), dict) else {}
+    fresh = False
+    for pid, angle in entries:
+        if slots.get(pid) == slot:
+            continue
+        hist = shown.get(pid) if isinstance(shown.get(pid), list) else []
+        shown[pid] = (hist + [angle])[-24:]
+        slots[pid] = slot
+        fresh = True
+    if not fresh:
+        return
+    shown["_slot"] = slots
+    tmp = f"{SHOWN}.{os.getpid()}.tmp"
+    try:
+        os.makedirs(os.path.dirname(SHOWN), exist_ok=True)
+        with open(tmp, "w") as f:
+            json.dump(shown, f)
+        os.replace(tmp, SHOWN)
+    except OSError:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+
+
+def choose_take(angles, hist, key, who, avoid=None):
+    """Which take (index into angles) a painting shows: a pseudo-random one
+    (fixed by key, so both panels agree) by someone other than whoever spoke
+    last time, unshown takes first. avoid: a speaker not to use (the pendant
+    opposite's)."""
+    ok = [i for i, a in enumerate(angles) if a is not None]
+    if not ok:
+        return 0
+    last = who(hist[-1]) if hist else None
+    for pool in ([i for i in ok if who(angles[i]) not in (last, avoid)],
+                 [i for i in ok if who(angles[i]) != avoid],
+                 [i for i in ok if who(angles[i]) != last], ok):
+        if pool:
+            break
+    seen = set()  # angles shown since the pool was last gone all the way through
+    for a in reversed(hist):
+        if {angles[i] for i in pool} <= seen | {a}:
+            break
+        seen.add(a)
+    pool = [i for i in pool if angles[i] not in seen] or pool
+    return random.Random(key).choice(pool)
+
+
 class Gallery:
     """A famous public-domain painting, dithered, across the whole window
     (your work hangs in front of its middle), with a museum caption. The
@@ -1566,6 +1682,8 @@ class Gallery:
     def __init__(self, s, side):
         self.s, self.side = s, side
         self.frame_opt = opt("zen-gallery-frame") or "auto"
+        # read once: opt() spawns tmux, and docent() and frame() run every frame
+        self.docent_kind = opt("zen-gallery-docent") or "cast"
         self.color = opt("zen-gallery-palette") != "mono"  # mono: the single-ink gallery
         hexbg = (opt("zen-bg") or "").lstrip("#")
         self.bg = (tuple(srgb_lin(int(hexbg[i:i + 2], 16)) for i in (0, 2, 4))
@@ -1618,7 +1736,7 @@ class Gallery:
             return None
         seed = int(os.environ.get("ZEN_SEED", "0"))
         # rotating: the slot of the shared clock picks, so both sides agree
-        idx = (seed + self.slot) % len(pool) if self.period else random.Random(seed).randrange(len(pool))
+        start = (seed + self.slot) % len(pool) if self.period else random.Random(seed).randrange(len(pool))
 
         def tall(item):  # portrait or squarish: hangs whole rather than split
             try:
@@ -1627,23 +1745,31 @@ class Gallery:
                 return pw / ph < 1.25
             except (OSError, struct.error, ZeroDivisionError):
                 return False
-        self.mode = {"auto": "whole" if tall(pool[idx]) else "split"}.get(self.frame_opt, self.frame_opt)
-        if self.mode not in ("split", "whole", "span"):
-            self.mode = "split"
-        pend = idx
-        if self.mode == "whole":  # the pendant opposite: the next tall one
-            for j in range(1, len(pool)):
-                if tall(pool[(idx + j) % len(pool)]):
-                    pend = (idx + j) % len(pool)
-                    break
-        left_png = pool[idx][1]
-        if self.mode == "whole" and self.side == "right":
-            idx = pend
-        meta, png = pool[idx]
-        try:
-            w, h, rows = read_png(png)
-        except (OSError, ValueError, zlib.error):
-            return None
+        # a painting that won't read (a truncated or broken download) is
+        # skipped: the next one in the pool hangs instead
+        bad, n = set(), len(pool)
+        while True:
+            idx = next(((start + j) % n for j in range(n) if (start + j) % n not in bad), None)
+            if idx is None:
+                return None
+            self.mode = {"auto": "whole" if tall(pool[idx]) else "split"}.get(self.frame_opt, self.frame_opt)
+            if self.mode not in ("split", "whole", "span"):
+                self.mode = "split"
+            pend = idx
+            if self.mode == "whole":  # the pendant opposite: the next tall one
+                for j in range(1, n):
+                    if (idx + j) % n not in bad and tall(pool[(idx + j) % n]):
+                        pend = (idx + j) % n
+                        break
+            left = pool[idx]
+            mine = pend if self.mode == "whole" and self.side == "right" else idx
+            meta, png = pool[mine]
+            try:
+                w, h, rows = read_png(png)
+                break
+            except (OSError, ValueError, zlib.error):
+                bad.add(mine)
+        idx = mine
         self.rgb = None
         if self.color:  # the colour copy, as linear rgb
             try:
@@ -1660,24 +1786,34 @@ class Gallery:
         span = max(0.05, hi - lo)
         rows = [[min(1.0, max(0.0, (v - lo) / span)) ** 1.25 for v in row] for row in rows]  # a bit of midtone contrast
         caption = [str(meta.get("artist", ""))[:60], str(meta.get("title", ""))[:60], str(meta.get("date", ""))[:40]]
-        # a different take each time it comes around (or each toggle)
-        take = self.slot // max(1, len(pool)) if self.period else seed
+        # which take: a different speaker each time it comes around (see
+        # choose_take). The memory (SHOWN) is read as it stood at this slot's
+        # start and the choice is keyed by (painting, slot), so both panels agree
+        def pid(item):
+            return str(item[0].get("id") or os.path.basename(item[1])[:-4])
+        slot = f"r{self.slot}" if self.period else f"t{seed}"
+        shown = shown_read()
+
+        def take_for(item, avoid=None):
+            i = choose_take(plaque_angles(item[1]), shown_history(shown, pid(item), slot),
+                            f"{pid(item)}|{slot}", self.who, avoid)
+            return plaque_words(item[1], i)
         # what gets said, in order, and in which panel: with pendants the left
         # painting's take in the left panel, then the right one's in the
         # right (both sides load both, so they agree on the timing); one
         # painting across both panels gets one take, in the right panel
         if self.mode == "whole":
-            first = plaque_words(left_png, take)
-            who = self.ANGLE_CAST[first.get("angle", 2) % len(self.ANGLE_CAST)]
-            second = {}
-            for j in range(1, 8):  # the opposite painting's take: someone else speaks it
-                second = plaque_words(pool[pend][1], take + j)
-                if self.ANGLE_CAST[second.get("angle", 2) % len(self.ANGLE_CAST)] != who:
-                    break
-            self.seq = [("left", first), ("right", second)]
+            first = take_for(left)
+            # the opposite painting's take: someone else speaks it
+            second = take_for(pool[pend], self.who(first["angle"]) if first.get("plaque") else None)
+            said = [("left", first, left), ("right", second, pool[pend])]
         else:
-            self.seq = [("right", plaque_words(png, take))]
-        self.seq = [(side, w) for side, w in self.seq if w.get("plaque")]
+            said = [("right", take_for(pool[idx]), pool[idx])]
+        said = [(side, words, item) for side, words, item in said if words.get("plaque")]
+        self.seq = [(side, words) for side, words, _ in said]
+        # one writer: the panel that speaks first records what was shown
+        if said and said[0][0] == self.side:
+            shown_record([(pid(item), words["angle"]) for _, words, item in said], slot)
         return (w, h, rows, [re.sub(r"[^\w .,;:'&()\-\u2013\u2014/]", "", c) for c in caption],
                 painting_ink(png[:-4] + "-color.png"))
 
@@ -1970,15 +2106,15 @@ class Gallery:
             "...XXXXXXXXXX...",
             "..XXXXXXXXXXXX..",
         ],
-        "professor": [         # hair up in a bun, opaque glasses with a glint, pearls
+        "professor": [         # hair up in a bun, solid opaque glasses, pearls
             "................",
             ".......XXX......",
             ".......XXX......",
             ".....XXXXXXX....",
             "....XXXXXXXXX...",
             "...XX.......XX..",
-            "...X.gXh.gXh.X..",    # g/h top corners, G centre: a glint is a
-            "...X.XGXXXGX.X..",    # corner plus the centre, a diagonal streak
+            "...X.XXX.XXX.X..",    # lenses solid: any blank pixel in them
+            "...X.XXXXXXX.X..",    # reads as an eyeball
             "...X.XXX.XXX.X..",
             "...X...ooo...X..",
             "....X.......X...",
@@ -2007,8 +2143,88 @@ class Gallery:
         "..XX.XXXXXX.XX..",
         "..XXX..XX..XXX..",
     ]
-    ANGLE_CAST = ["artist", "painter", "critic", "critic", "professor", "everyman"]
+    CAST["kid"] = [            # high side bunches, no bangs: the tails droop
+        "................",    # at rest (t), kick out level while talking (T)
+        "................",
+        "................",
+        "TX...XXXXXX...XT",
+        "XXXXXXXXXXXXXXXX",
+        "XX.X........X.XX",
+        "t..X........X..t",
+        "t..X..e..e..X..t",
+        "...X........X...",
+        "...X...oo...X...",
+        "....X......X....",
+        ".....XXXXXX.....",
+        ".......XX.......",
+        ".....XXXXXX.....",
+        "....XXXXXXXX....",
+        "....XXXXXXXX....",
+    ]
+    CAST["ghost"] = [          # a sheet ghost in a flat beret; the scalloped
+        "......X.........",    # hem ripples (t/T) as it talks
+        "...XXXXXXX......",
+        "..XXXXXXXXXX....",
+        "....XXXXXXXX....",
+        "...X........X...",
+        "..X..........X..",
+        "..X..e....e..X..",
+        "..X..........X..",
+        "..X....oo....X..",
+        "..X..........X..",
+        ".X............X.",
+        ".X............X.",
+        ".X............X.",
+        ".X............X.",
+        ".XtTTXttTTXttTX.",
+        ".TTtt.TTtt.TTtt.",
+    ]
+    CAST["commissar"] = [      # budenovka with its star cut out; clean eyes, no brows
+        ".......XX.......",
+        "......XXXX......",
+        ".....XXX.XX.....",
+        "....XX....XX....",
+        "....XXX..XXX....",
+        "...XXX.XX.XXX...",
+        "...XXXXXXXXXX...",
+        "...X........X...",
+        "...X..e..e..X...",
+        "...X........X...",
+        "...X...oo...X...",
+        "....X......X....",
+        ".....XXXXXX.....",
+        "..XX..X..X..XX..",
+        "..XXX..XX..XXX..",
+        ".XXXXXXXXXXXXXX.",
+    ]
+    CAST["scholar"] = [        # Ming official: winged gauze cap (wushamao), the
+        "......XXXX......",    # thin wings set off the crown by a 1-px gap (not
+        "TTTT.XXXXXX.TTTT",    # a brim: that reads as a sombrero) and bobbing
+        "tttt.XXXXXX.tttt",    # up (T) as he talks; round-collar robe with a
+        "...XXXXXXXXXX...",    # square rank badge. Clean-shaven, round eyes on
+        "...XXXXXXXXXX...",    # purpose: no drooping moustache (caricature risk)
+        "...X........X...",
+        "...X..e..e..X...",
+        "...X........X...",
+        "...X........X...",
+        "...X...oo...X...",
+        "....X......X....",
+        ".....XXXXXX.....",
+        "...XXXX..XXXX...",
+        ".XXXXXXXXXXXXXX.",
+        ".XXXXX....XXXXX.",
+        ".XXXXX.XX.XXXXX.",
+    ]
+    # an angle past ANGLE_CAST (or a name without a sprite) borrows the critic's (CAST.get)
+    ANGLE_CAST = ["artist", "painter", "critic", "critic", "professor", "everyman",
+                  "kid", "ghost", "commissar", "scholar"]
     TYPE_RATE = 24.0   # characters a second
+
+    def who(self, angle):
+        """Who speaks an angle's take; an angle past ANGLE_CAST is its own
+        (sprite-less) speaker, drawn as the critic."""
+        ok = isinstance(angle, int) and 0 <= angle < len(self.ANGLE_CAST)
+        return self.ANGLE_CAST[angle] if ok else f"angle{angle}"
 
     def cast_mask(self, who):
         """The cells a figure covers: per pixel row, everything between its
@@ -2020,21 +2236,21 @@ class Gallery:
                 cells.add((y // 4, x // 2))
         return cells
 
-    def cast_cells(self, who, mouth, look, blink, swing=False, glint=None):
-        # glint: which top corner of her lenses catches the light (-1 left,
-        # +1 right, 0 none); by default the inner one, away from the side
-        # she looks to, so it never lands flush against her face outline
-        glint = -look if glint is None else glint
+    # the professor's glint: each lens loses its top-right corner (an L of 3
+    # pixels, never the centre), as (y, x) in her sprite
+    GLINT = {(6, 6), (6, 7), (7, 7), (6, 10), (6, 11), (7, 11)}
+
+    def cast_cells(self, who, mouth, look, blink, swing=False, glint=False):
         bits = {}
         for y, line in enumerate(self.CAST.get(who, self.CAST["critic"])):
             for x, c in enumerate(line):
                 on = (c == "X" or (c == "o" and mouth) or (c == "c" and not mouth)
-                      or (c == "t" and not swing) or (c == "T" and swing)
-                      or (c == "g" and glint != -1) or (c == "h" and glint != 1)
-                      or (c == "G" and not glint))
+                      or (c == "t" and not swing) or (c == "T" and swing))
                 if c == "e" and not blink:
                     x, on = x + look, True       # eyes shift as he looks around
                 elif who == "professor" and 6 <= y <= 8 and 5 <= x <= 11:
+                    if glint and (y, x) in self.GLINT:
+                        on = False               # light catching her glasses
                     x += look                    # her glasses nudge as she looks around
                 if on:
                     key = (y // 4, x // 2)
@@ -2048,7 +2264,7 @@ class Gallery:
         types it out, mouth going, finished lines scrolling up. With pendants
         the left painting gets its say first, then the speaker pops across to
         the right one. Returns True while typing in this panel."""
-        kind = opt("zen-gallery-docent") or "cast"
+        kind = self.docent_kind
         if kind == "critic":
             kind = "cast"
         if kind not in ("plaque", "cast") or not self.seq:
@@ -2071,7 +2287,9 @@ class Gallery:
         sprite = 9 if kind == "cast" else 0
         width = max(10, s.w - sprite - 4)
         lines = textwrap.wrap(text, width)
-        base = s.h - 4                          # the speaker's top row (4 rows tall)
+        if not lines:
+            return False   # nothing left after sanitising: skip this take
+        base = s.h - 4                         # the speaker's top row (4 rows tall)
         say = base + 2 if kind == "cast" else s.h - 2   # the line being typed: level with the mouth
         upto, cur = shown, len(lines) - 1
         for i, line in enumerate(lines):        # which line is being typed, and how far
@@ -2092,7 +2310,7 @@ class Gallery:
                   getattr(curses, "A_ITALIC", 0) if kind == "plaque" else 0)
         typing = active == k and shown < len(text)
         if kind == "cast" and active >= k:      # here from their turn on: done, they stay and look around
-            who = self.ANGLE_CAST[self.seq[k][1].get("angle", 2) % len(self.ANGLE_CAST)]
+            who = self.who(self.seq[k][1].get("angle", 2))
             # no patch of wall: only the figure's own cells are cleared, so the
             # face is blank and the painting runs right up to the outline
             for row, col in self.cast_mask(who):
@@ -2101,11 +2319,11 @@ class Gallery:
             # while talking they face their painting; then they look around
             look = (1 if self.side == "right" else -1) if typing else (-1, 0, 1, 0)[int(hash01(int(now // 2.5), 61) * 4)]
             blink = (now % 4.7) < 0.15
-            # the professor's glasses glint on the inner corner as she glances
-            # aside, and flash briefly now and then while she looks ahead
-            glint = -look if look else (1 if (now % 3.7) < 0.6 else 0)
             # a tassel swings with the head as they talk, and now and then after
             swing = (int(now * 5) % 3 == 0) if typing else (now % 6.3) < 0.4
+            # now and then a glint off the professor's glasses, only while she
+            # looks straight ahead (~0.3 s every 7.3 s; >= one frame at 4 fps)
+            glint = look == 0 and (now % 7.3) < 0.3
             for (row, col), bits in self.cast_cells(who, mouth, look, blink, swing, glint).items():
                 s.put(base + row, sx + col, OCTANTS[bits], self.ink)
         return typing
@@ -2152,9 +2370,9 @@ class Gallery:
             self.fps = 12 if speaking else 4   # the typewriter; then blinks and glances
         elif not self.period:
             self.fps = 12 if speaking else 4 if self.seq else 1
-        docent_here = any(side == self.side for side, _ in self.seq) and (opt("zen-gallery-docent") or "cast") != "none"
-        if self.side == "right" or self.mode == "whole":  # the caption plate, an outer corner
-            lines = [l for l in self.art[3] if l]
+        docent_here = any(side == self.side for side, _ in self.seq) and self.docent_kind != "none"
+        lines = [l for l in self.art[3] if l]   # (all of it may have been sanitised away)
+        if lines and (self.side == "right" or self.mode == "whole"):  # the caption plate, an outer corner
             width = min(s.w - 2, max(len(l) for l in lines) + 2)
             top = 0 if docent_here else s.h - len(lines) - 2   # the top, if the docent has the bottom
             left = s.w - width - 1 if self.side == "right" else 1
