@@ -2215,6 +2215,42 @@ class Gallery:
         ".XXXXX....XXXXX.",
         ".XXXXX.XX.XXXXX.",
     ]
+    # Toned sprites: up to 3 colours plus the background instead of the one ink.
+    # A sprite is {"rows", "palette", "codes"}: rows are 16x16 like CAST, each
+    # pixel a tone, "." or "0" = background (transparent), "1"-"3" = palette
+    # colours ("#rrggbb"). Any other char is a behaviour pixel, looked up in
+    # codes as (kind, on, off): kind is one of CAST's codes, e/o/c/t/T. e draws
+    # tone `on` at x+look (not while blinking) over tone `off` at x; o/c/t/T
+    # show `on` whenever the 1-bit code would ink the pixel, else `off`.
+    # A terminal cell (2x4 pixels, one octant glyph) has one fg and one bg
+    # colour, so no cell may ever hold more than two tones counting the
+    # background: a cell with two colours must be fully covered. check_toned()
+    # enforces this for every frame (talk/look/blink/swing) at load; a sprite
+    # that breaks it is dropped (stderr) and its speaker drawn as the critic.
+    # A name in TONED is drawn from it; otherwise from CAST.
+    TONED = {}
+    TONED["griot"] = {         # a jeli: flat-topped kufi (a dome read as a beanie)
+        "palette": {1: "#120A06", 2: "#8C5A3C", 3: "#4A5CA8"},   # near-black, skin, indigo
+        "codes": {"e": ("e", 1, 2), "m": ("o", 1, 2)},    # small eyes; a 2-px mouth only talking
+        "rows": [              # and wide boubou in indigo. No kora: at 16x16
+            "................",    # every draft read as a staff, oar, sword, bat
+            "....33333333....",    # or hoe (the last a laborer trope), never a
+            "....33333333....",    # harp-lute, even with a 6x6 calabash
+            "....33333333....",
+            "....22222222....",
+            "....22222222....",
+            "....22e22e22....",
+            "....22222222....",
+            "....22222222....",
+            "....222mm222....",
+            "...3322222233...",
+            "..333322223333..",
+            "..333332233333..",
+            "..333333333333..",
+            "..333333333333..",
+            "..333333333333..",
+        ],
+    }
     # an angle past ANGLE_CAST (or a name without a sprite) borrows the critic's (CAST.get)
     ANGLE_CAST = ["artist", "painter", "critic", "critic", "professor", "everyman",
                   "kid", "ghost", "commissar", "scholar"]
@@ -2230,8 +2266,9 @@ class Gallery:
         """The cells a figure covers: per pixel row, everything between its
         leftmost and rightmost mark (so faces are filled in), at cell size."""
         cells = set()
-        for y, line in enumerate(self.CAST.get(who, self.CAST["critic"])):
-            marks = [x for x, c in enumerate(line) if c != "."]
+        rows = self.TONED[who]["rows"] if who in self.TONED else self.CAST.get(who, self.CAST["critic"])
+        for y, line in enumerate(rows):
+            marks = [x for x, c in enumerate(line) if c not in ".0"]
             for x in range(min(marks), max(marks) + 1) if marks else ():
                 cells.add((y // 4, x // 2))
         return cells
@@ -2256,6 +2293,79 @@ class Gallery:
                     key = (y // 4, x // 2)
                     bits[key] = bits.get(key, 0) | Braille.BIT[(x % 2, y % 4)]
         return bits
+
+    @staticmethod
+    def toned_pixels(spr, mouth, look, blink, swing=False):
+        """A toned sprite's frame: {(x, y): tone}, background (0) left out."""
+        tone, eyes = {}, []
+        for y, line in enumerate(spr["rows"]):
+            for x, c in enumerate(line):
+                if c in "0123.":
+                    t = 0 if c == "." else int(c)
+                else:
+                    kind, on, off = spr["codes"][c]
+                    if kind == "e":
+                        t = off
+                        if not blink:
+                            eyes.append((x + look, y, on))   # drawn over the rest
+                    else:
+                        t = on if {"o": mouth, "c": not mouth, "t": not swing, "T": swing}[kind] else off
+                if t:
+                    tone[(x, y)] = t
+        for x, y, t in eyes:
+            tone[(x, y)] = t
+        return tone
+
+    @staticmethod
+    def toned_split(tone):
+        """Pixels to cells: {(row, col): (bits, fg tone, bg tone)}, bg 0 = the
+        terminal's own. fg is the cell's rarer tone (its pixels make the
+        octant), bg the other; None if a cell would need a third tone."""
+        per = {}
+        for (x, y), t in tone.items():
+            per.setdefault((y // 4, x // 2), {}).setdefault(t, []).append(Braille.BIT[(x % 2, y % 4)])
+        out = {}
+        for key, by in per.items():
+            n = sum(len(v) for v in by.values())
+            if n < 8:
+                by[0] = [0] * (8 - n)       # uncovered pixels are background
+            if len(by) > 2:
+                return None
+            fg = min((t for t in by if t), key=lambda t: (len(by[t]), -t))
+            bg = next((t for t in by if t != fg), 0)
+            out[key] = (sum(by[fg]), fg, bg)
+        return out
+
+    @classmethod
+    def check_toned(cls):
+        """Drop (with a warning) any toned sprite that some frame would need
+        three tones in one cell for, or that's malformed."""
+        for name, spr in list(cls.TONED.items()):
+            try:
+                rows = spr["rows"]
+                assert len(rows) == 16 and all(len(r) == 16 for r in rows), "not 16x16"
+                for mouth in (0, 1):
+                    for look in (-1, 0, 1):
+                        for blink in (0, 1):
+                            for swing in (0, 1):
+                                tone = cls.toned_pixels(spr, mouth, look, blink, swing)
+                                assert all(t in spr["palette"] for t in tone.values()), "tone not in palette"
+                                assert cls.toned_split(tone) is not None, \
+                                    f"3 tones in a cell (mouth={mouth} look={look} blink={blink} swing={swing})"
+            except (AssertionError, KeyError, ValueError) as e:
+                print(f"zen-spacer: toned sprite {name!r} dropped: {e!r}", file=sys.stderr)
+                del cls.TONED[name]
+
+    def toned_cells(self, who, mouth, look, blink, swing=False):
+        """{(row, col): (octant, sgr)} for a toned sprite: 24-bit fg, and a
+        bg only where a cell holds two colours (else the terminal's own)."""
+        spr = self.TONED[who]
+        rgb = {t: tuple(int(h[i:i + 2], 16) for i in (1, 3, 5)) for t, h in spr["palette"].items()}
+        out = {}
+        for key, (bits, fg, bg) in self.toned_split(self.toned_pixels(spr, mouth, look, blink, swing)).items():
+            sgr = "0;38;2;%d;%d;%d" % rgb[fg] + (";48;2;%d;%d;%d" % rgb[bg] if bg else "")
+            out[key] = (OCTANTS[bits], sgr)
+        return out
 
     def docent(self, now):
         """Draw the cast or the plaque (@zen-gallery-docent: cast, plaque or
@@ -2324,8 +2434,12 @@ class Gallery:
             # now and then a glint off the professor's glasses, only while she
             # looks straight ahead (~0.3 s every 7.3 s; >= one frame at 4 fps)
             glint = look == 0 and (now % 7.3) < 0.3
-            for (row, col), bits in self.cast_cells(who, mouth, look, blink, swing, glint).items():
-                s.put(base + row, sx + col, OCTANTS[bits], self.ink)
+            if who in self.TONED:
+                for (row, col), (ch, sgr) in self.toned_cells(who, mouth, look, blink, swing).items():
+                    s.put_sgr(base + row, sx + col, ch, sgr)
+            else:
+                for (row, col), bits in self.cast_cells(who, mouth, look, blink, swing, glint).items():
+                    s.put(base + row, sx + col, OCTANTS[bits], self.ink)
         return typing
 
     def fade(self, now):
@@ -2381,6 +2495,9 @@ class Gallery:
             for i, line in enumerate(lines):
                 s.put(top + 1 + i, left + 1, line[:width - 2], self.ink,
                       curses.A_BOLD if i == 0 else getattr(curses, "A_ITALIC", 0) if i == 1 else curses.A_DIM)
+
+
+Gallery.check_toned()   # at load: a toned sprite some frame can't draw is dropped, loudly
 
 
 # ---------------------------------------------------------------- matrix
