@@ -1,1 +1,3 @@
+# Per-host machine identifier — set per-machine, not shared.
+machine
 __pycache__/
