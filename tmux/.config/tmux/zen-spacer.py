@@ -108,6 +108,16 @@ class Screen:
             except curses.error:
                 pass
 
+    def put_sgr(self, y, x, ch, sgr):
+        """One character with its own SGR attributes (e.g. "0;38;5;178"),
+        written around curses like the octants: curses only does 8 colours."""
+        if 0 <= y < self.h and 0 <= x < self.w and not (y == self.h - 1 and x == self.w - 1):
+            self.raw[(y, x)] = (ch, sgr, 0)
+            try:
+                self.scr.addstr(y, x, " ")
+            except curses.error:
+                pass
+
     def refresh(self):
         # a raw cell gone since last frame is a space to curses both times, so
         # curses would never repaint it: have it redraw those lines
@@ -117,7 +127,8 @@ class Screen:
         if self.raw:
             out = []
             for (y, x), (ch, color, attr) in self.raw.items():
-                sgr = "0;3%d" % color + (";1" if attr & curses.A_BOLD else "") + (";2" if attr & curses.A_DIM else "")
+                sgr = color if isinstance(color, str) else (
+                    "0;3%d" % color + (";1" if attr & curses.A_BOLD else "") + (";2" if attr & curses.A_DIM else ""))
                 out.append(f"\x1b[{y + 1};{x + 1}H\x1b[{sgr}m{ch}")
             cy, cx = self.scr.getyx()
             out.append(f"\x1b[0m\x1b[{cy + 1};{cx + 1}H")  # leave things as curses left them
@@ -1176,9 +1187,10 @@ class Braille:
 GALLERY = os.path.expanduser("~/.cache/zen/gallery")  # filled by zen-gallery.py
 
 
-def read_png(path, max_side=2000):
+def read_png(path, max_side=2000, rgb=False):
     """A non-interlaced 8-bit PNG (gray, gray+alpha, RGB or RGBA) as
-    (width, height, rows of 0..1 luminance). Stdlib only: PNG is zlib."""
+    (width, height, rows of 0..1 luminance), or of (r, g, b) 0..255 tuples
+    with rgb=True. Stdlib only: PNG is zlib."""
     with open(path, "rb") as f:
         data = f.read()
     if not data.startswith(b"\x89PNG\r\n\x1a\n"):
@@ -1214,7 +1226,10 @@ def read_png(path, max_side=2000):
                 pa, pb, pc = abs(b - c), abs(a - c), abs(a + b - 2 * c)
                 line[i] = (line[i] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
         prev = line
-        if ctype in (0, 4):
+        if rgb:
+            rows.append([(line[i], line[i], line[i]) if ctype in (0, 4) else tuple(line[i:i + 3])
+                         for i in range(0, stride, bpp)])
+        elif ctype in (0, 4):
             rows.append([line[i] / 255 for i in range(0, stride, bpp)])
         else:
             rows.append([(0.299 * line[i] + 0.587 * line[i + 1] + 0.114 * line[i + 2]) / 255
@@ -1222,18 +1237,144 @@ def read_png(path, max_side=2000):
     return w, h, rows
 
 
+def box_blur(rows, r):
+    """Separable box blur of a 2-D list, radius r (clamped edges)."""
+    def blur1(line):
+        n, out, acc = len(line), [], 0.0
+        pref = [0.0]
+        for v in line:
+            acc += v
+            pref.append(acc)
+        for i in range(n):
+            lo, hi = max(0, i - r), min(n, i + r + 1)
+            out.append((pref[hi] - pref[lo]) / (hi - lo))
+        return out
+    rows = [blur1(row) for row in rows]
+    cols = [blur1(list(col)) for col in zip(*rows)]
+    return [list(row) for row in zip(*cols)]
+
+
+# ANSI hues by angle; blue is drawn bold (bright) so it reads on black
+HUES = [(0, "RED"), (55, "YELLOW"), (120, "GREEN"), (185, "CYAN"), (235, "BLUE"), (300, "MAGENTA")]
+
+
+def painting_ink(path):
+    """The painting's dominant saturated hue as an ANSI colour name (white
+    if it's mostly neutral), from a small colour thumbnail."""
+    try:
+        _, _, rows = read_png(path, rgb=True)
+    except (OSError, ValueError, zlib.error):
+        return None
+    sx = sy = wsum = 0.0
+    for row in rows:
+        for r, g, b in row:
+            mx, mn = max(r, g, b), min(r, g, b)
+            if mx < 40 or mx - mn < 30:
+                continue
+            sat = (mx - mn) / mx
+            if mx == r:
+                h = (60 * (g - b) / (mx - mn)) % 360
+            elif mx == g:
+                h = 60 * (b - r) / (mx - mn) + 120
+            else:
+                h = 60 * (r - g) / (mx - mn) + 240
+            sx += sat * math.cos(math.radians(h))
+            sy += sat * math.sin(math.radians(h))
+            wsum += sat
+    n = sum(len(row) for row in rows) or 1
+    if wsum / n < 0.06:
+        return "WHITE"
+    hue = math.degrees(math.atan2(sy, sx)) % 360
+    return min(HUES, key=lambda hn: min(abs(hue - hn[0]), 360 - abs(hue - hn[0])))[1]
+
+
+def srgb_lin(c):
+    c /= 255
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+
+def oklab(r, g, b):
+    """Linear sRGB (0..1) to Oklab: L lightness, a/b colour, perceptually even."""
+    l = (0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b) ** (1 / 3)
+    m = (0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b) ** (1 / 3)
+    s = (0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b) ** (1 / 3)
+    return (0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+            1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+            0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s)
+
+
+def xterm256():
+    """The xterm 256-colour palette beyond the 16 user-set colours: the 6x6x6
+    cube and the gray ramp, as (index, linear rgb)."""
+    out, lv = [], [0, 95, 135, 175, 215, 255]
+    for i in range(216):
+        out.append((16 + i, (lv[i // 36], lv[i // 6 % 6], lv[i % 6])))
+    for i in range(24):
+        out.append((232 + i, (8 + 10 * i,) * 3))
+    return [(n, tuple(srgb_lin(c) for c in rgb)) for n, rgb in out]
+
+
+def dots4(states):
+    """Eight 0..3 dot states (braille order) as a Zen Dots character."""
+    n = sum(v * 4 ** i for i, v in enumerate(states))
+    return " " if n == 0 else "\u2588" if n == 4 ** 8 - 1 else chr(0x100000 + n)
+
+
+BAYER2 = [[0, 2], [3, 1]]
+DOT_ORDER = [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (0, 3), (1, 3)]  # braille order
+
+
 class Gallery:
     """A famous public-domain painting, dithered, across the whole window
     (your work hangs in front of its middle), with a museum caption. The
     painting is picked per toggle from ~/.cache/zen/gallery (zen-gallery.py
-    fills it), or by @zen-painting (an AIC id or part of a title)."""
+    fills it), or by @zen-painting (an AIC id or part of a title).
+    @zen-gallery-frame: auto (default: a landscape is split, each spacer showing
+    its own half so nothing hides behind your work; a portrait or square one
+    hangs whole, at its true shape, with a second one opposite as its
+    pendant), split, whole, or span (one painting across the window, its
+    middle behind your work). Ink: @zen-ink (a colour, or random), else
+    the painting's own dominant colour. @zen-pixels dots uses the Zen Dots font (4 levels).
+    Style gallery-color: the painting's own colours, braille in the xterm
+    256-colour cube and gray ramp (your 16-colour palette is left alone),
+    blended toward the background (@zen-gallery-blend; 0.3 on dark, 0.05 on light). The
+    background is asked of the terminal at startup (@zen-bg overrides); on a
+    light one the dots become ink on paper, drawn where the painting is dark.
+    Rotation: every @zen-gallery-rotate minutes (default 5, 0 = never) the
+    next painting, on the shared clock so both sides turn together: the old
+    one dissolves dot by dot into the background, the spacer respawns (and so
+    re-asks the terminal for its colours), the new one condenses back."""
     fps = 1
+    FADE = 4.0     # seconds to dissolve out, and again to condense in
 
-    def __init__(self, s, side):
+    def __init__(self, s, side, color=False):
         self.s, self.side = s, side
-        ink = (opt("zen-ink") or "white").lower()
-        self.ink = getattr(curses, f"COLOR_{ink.upper()}", curses.COLOR_WHITE)
+        self.frame_opt = opt("zen-gallery-frame") or "auto"
+        self.color = color
+        hexbg = (opt("zen-bg") or "").lstrip("#")
+        self.bg = (tuple(srgb_lin(int(hexbg[i:i + 2], 16)) for i in (0, 2, 4))
+                   if re.fullmatch(r"[0-9a-fA-F]{6}", hexbg) else TERM_BG or (0.0, 0.0, 0.0))
+        # on a light background dots are ink on paper: drawn where it's dark
+        self.light = 0.2126 * self.bg[0] + 0.7152 * self.bg[1] + 0.0722 * self.bg[2] > 0.25
+        self.dots = opt("zen-pixels") == "dots"
+        # braille dots cover maybe a third of a cell: light dots on dark glow
+        # past that, dark dots on paper can't get dark enough. So on a light
+        # background octants (solid sub-cells) unless @zen-pixels says otherwise
+        self.octant = PIXELS in ("octant", "mixed") or (self.light and not opt("zen-pixels"))
+        try:
+            self.period = max(0.0, float(opt("zen-gallery-rotate") or 5)) * 60
+        except ValueError:
+            self.period = 300.0
+        if opt("zen-painting"):
+            self.period = 0.0  # a chosen painting stays
+        self.slot = int(time.time() // self.period) if self.period else 0
+        self.respawn = False
         self.art = self.pick()
+        ink = (opt("zen-ink") or (self.art and self.art[4]) or "white").upper()
+        if ink == "RANDOM":
+            ink = random.Random(int(os.environ.get("ZEN_SEED", "0")) + 1).choice([h for _, h in HUES] + ["WHITE"])
+        self.ink = getattr(curses, f"COLOR_{ink}", curses.COLOR_WHITE)
+        self.attr = curses.A_BOLD if ink == "BLUE" else 0
         self.resize()
 
     def pick(self):
@@ -1250,58 +1391,214 @@ class Gallery:
         pool = chosen or metas
         if not pool:
             return None
-        meta, png = random.Random(int(os.environ.get("ZEN_SEED", "0"))).choice(pool)
+        seed = int(os.environ.get("ZEN_SEED", "0"))
+        # rotating: the slot of the shared clock picks, so both sides agree
+        idx = (seed + self.slot) % len(pool) if self.period else random.Random(seed).randrange(len(pool))
+
+        def tall(item):  # portrait or squarish: hangs whole rather than split
+            try:
+                with open(item[1], "rb") as f:
+                    pw, ph = struct.unpack(">II", f.read(24)[16:24])
+                return pw / ph < 1.25
+            except (OSError, struct.error, ZeroDivisionError):
+                return False
+        self.mode = {"auto": "whole" if tall(pool[idx]) else "split"}.get(self.frame_opt, self.frame_opt)
+        if self.mode not in ("split", "whole", "span"):
+            self.mode = "split"
+        if self.mode == "whole" and self.side == "right":  # its pendant: the next tall one
+            for j in range(1, len(pool)):
+                if tall(pool[(idx + j) % len(pool)]):
+                    idx = (idx + j) % len(pool)
+                    break
+        meta, png = pool[idx]
         try:
             w, h, rows = read_png(png)
         except (OSError, ValueError, zlib.error):
             return None
-        # stretch the levels (2nd..98th percentile) so dark paintings still read
+        self.rgb = None
+        if self.color:  # the colour copy, as linear rgb
+            try:
+                cw, ch, crow = read_png(png[:-4] + "-color.png", rgb=True)
+                self.rgb = (cw, ch, [[tuple(srgb_lin(c) for c in px) for px in row] for row in crow])
+            except (OSError, ValueError, zlib.error):
+                pass
+        # sharpen (unsharp mask) so edges survive the dither, then stretch the
+        # levels (2nd..98th percentile) so dark paintings still read
+        soft = box_blur(rows, max(1, w // 200))
+        rows = [[v + 0.9 * (v - b) for v, b in zip(row, brow)] for row, brow in zip(rows, soft)]
         flat = sorted(v for row in rows[::4] for v in row[::4])
         lo, hi = flat[len(flat) // 50], flat[-len(flat) // 50 - 1]
         span = max(0.05, hi - lo)
         rows = [[min(1.0, max(0.0, (v - lo) / span)) ** 1.25 for v in row] for row in rows]  # a bit of midtone contrast
         caption = [str(meta.get("artist", ""))[:60], str(meta.get("title", ""))[:60], str(meta.get("date", ""))[:40]]
-        return w, h, rows, [re.sub(r"[^\w .,;:'&()\-\u2013\u2014/]", "", c) for c in caption]
+        return (w, h, rows, [re.sub(r"[^\w .,;:'&()\-\u2013\u2014/]", "", c) for c in caption],
+                painting_ink(png[:-4] + "-color.png"))
 
     def resize(self):
         s = self.s
         self.W, self.H = 2 * s.w, 4 * s.h
         self.ox, self.WW = s.x0 * 2, s.world_w * 2
         self.cells = {}
+        self.dotr = []  # (cell, dot bit, r): a dot shows while the fade level k >= r
         if not self.art:
             return
-        w, h, rows, _ = self.art
+        w, h, rows = self.art[:3]
         # a braille dot is cell_h/4 tall by cell_w/2 wide: 1.25 wide-units
         # tall in a 14x35 cell, so measure y in dot widths to keep the shape
         geo = tmux("display", "-p", "#{client_cell_width} #{client_cell_height}").split()
         ay = (int(geo[1]) / 4) / (int(geo[0]) / 2) if len(geo) == 2 and geo[0].isdigit() and int(geo[0]) else 1.0
-        # cover the window (crop the overflow evenly), sampling at dot centres
-        scale = max(self.WW / w, self.H * ay / h)
-        cx, cy = (w - self.WW / scale) / 2, (h - self.H * ay / scale) / 2
+        if self.mode == "split":    # this spacer's half of the painting, covering the panel
+            x0 = 0 if self.side == "left" else w / 2
+            pw, frame_w, fx = w / 2, self.W, 0
+        elif self.mode == "whole":  # all of it, at its own shape, with a margin
+            x0, pw, frame_w, fx = 0, w, self.W, 0
+        else:                       # one painting across the window
+            x0, pw, frame_w, fx = 0, w, self.WW, self.ox
+        if self.mode == "whole":    # contain: fit inside, leaving wall around it
+            scale = min(frame_w * 0.88 / pw, self.H * ay * 0.8 / h)
+            cy = (h - self.H * ay / scale) / 2 - 2 * ay / scale  # a little above centre, room for the plate
+        else:                       # cover: fill, cropping the overflow evenly
+            scale = max(frame_w / pw, self.H * ay / h)
+            cy = (h - self.H * ay / scale) / 2
+        cx = x0 + (pw - frame_w / scale) / 2
+
+        def tone(x, y):  # how much ink this dot wants: light on dark, dark on light
+            sy, sx = cy + (y + 0.5) * ay / scale, cx + (x + fx + 0.5) / scale
+            if not (0 <= sy < h and 0 <= sx < w):
+                return 0.0  # the wall around a hung painting
+            v = rows[int(sy)][int(sx)]
+            return 1 - v if self.light else v
+        if self.rgb:
+            self.paint_color(tone, scale, cx, cy, ay, fx, w, h)
+            return
+        if self.dots:  # 4 levels per dot, ordered dither between neighbouring levels
+            for row in range(self.H // 4):
+                for col in range(self.W // 2):
+                    states = []
+                    for c, r in DOT_ORDER:
+                        lvl = tone(col * 2 + c, row * 4 + r) * 3
+                        lo = int(lvl)
+                        states.append(min(3, lo + (lvl - lo > (BAYER2[r % 2][c] + 0.5) / 4)))
+                    if any(states):
+                        self.cells[(row, col)] = dots4(states)
+            return
         for y in range(self.H):
-            row = rows[min(h - 1, int(cy + (y + 0.5) * ay / scale))]
             for x in range(self.W):
                 wx = x + self.ox
-                v = row[min(w - 1, int(cx + (wx + 0.5) / scale))]
+                v = tone(x, y)
                 if v > 0.04 and v > DITHER[y % 64][wx % 64]:
                     key = (y // 4, x // 2)
                     self.cells[key] = self.cells.get(key, 0) | Braille.BIT[(x % 2, y % 4)]
+                    self.dotr.append((key, Braille.BIT[(x % 2, y % 4)], DITHER[y % 64][wx % 64] / v))
+
+    LIFT = 1.3     # tone -> dot density: a little contrast so shapes hold together
+
+    def paint_color(self, tone, scale, cx, cy, ay, fx, w, h):
+        """Braille in 256 colours, with lightness and colour split the way the
+        eye splits them (JPEG's chroma subsampling, more or less):
+
+        - the dots carry lightness: density is the ordered dither of the
+          painting's tone, exactly as in black and white, so it stays legible;
+        - each cell's one ink colour carries hue: the painting's colour under
+          the cell at full brightness, blended toward the background
+          (@zen-gallery-blend, 0..1, default 0.3), on a light background the inks deepened,
+          matched to the xterm 256-colour cube in Oklab, and the colour it
+          misses by is passed on to the next cells (Floyd-Steinberg), so
+          neighbouring dots mix toward the true hue the way Seurat's do."""
+        cw, ch, lin = self.rgb
+        pal = [(n, rgb, oklab(*rgb)) for n, rgb in xterm256()]
+        default = 0.05 if self.light else 0.3  # toward paper, blending just grays the inks
+        try:
+            blend = clamp(float(opt("zen-gallery-blend") or default), 0.0, 0.95)
+        except ValueError:
+            blend = default
+        bg = self.bg
+        depth = 0.2 if self.light else 1.0  # on paper the inks are deep versions of the colours
+        rows_, cols_ = self.H // 4, self.W // 2
+        err = [[(0.0, 0.0, 0.0)] * (cols_ + 2) for _ in range(rows_ + 2)]
+        memo = {}
+
+        def color_at(x, y):  # linear rgb of the painting under dot (x, y)
+            px = (cx + (x + fx + 0.5) / scale) / w * cw
+            py = (cy + (y + 0.5) * ay / scale) / h * ch
+            return lin[min(ch - 1, max(0, int(py)))][min(cw - 1, max(0, int(px)))]
+
+        self.ccells = {}
+        for row in range(rows_):
+            for col in range(cols_):
+                dots = [(col * 2 + c, row * 4 + r) for c, r in DOT_ORDER]
+                bits = 0
+                for x, y in dots:  # lightness: dot density, as in black and white
+                    t = tone(x, y)
+                    d = DITHER[y % 64][(x + self.ox) % 64]
+                    if t > 0.04 and t ** self.LIFT > d:
+                        bits |= Braille.BIT[(x % 2, y % 4)]
+                        self.dotr.append(((row, col), Braille.BIT[(x % 2, y % 4)], d / t ** self.LIFT))
+                avg = [sum(color_at(x, y)[i] for x, y in dots) / 8 for i in range(3)]
+                peak = max(avg)
+                full = [depth * v / peak for v in avg] if peak > 1e-4 else [depth] * 3  # its hue, full (or deep on paper)
+                e = err[row][col]
+                target = tuple(clamp((1 - blend) * full[i] + blend * bg[i] + e[i], 0.0, 1.0) for i in range(3))
+                if not bits:  # nothing drawn here: carry the colour on untouched
+                    err[row][col + 1] = tuple(err[row][col + 1][i] + (target[i] - (1 - blend) * full[i] - blend * bg[i]) for i in range(3))
+                    continue
+                key = tuple(round(v * 48) for v in target)
+                if key not in memo:
+                    tl = oklab(*target)
+                    memo[key] = min(pal, key=lambda q: 0.5 * (q[2][0] - tl[0]) ** 2 + (q[2][1] - tl[1]) ** 2 + (q[2][2] - tl[2]) ** 2)
+                n, rgb, _ = memo[key]
+                left = [target[i] - rgb[i] for i in range(3)]
+                for dr, dc, wgt in ((0, 1, 7 / 16), (1, -1, 3 / 16), (1, 0, 5 / 16), (1, 1, 1 / 16)):
+                    o = err[row + dr][col + dc]
+                    err[row + dr][col + dc] = tuple(o[i] + left[i] * wgt for i in range(3))
+                self.ccells[(row, col)] = (self.glyph(bits), f"0;38;5;{n}")
+
+    def glyph(self, bits):
+        return OCTANTS[bits] if self.octant else chr(0x2800 + bits)
+
+    def fade(self, now):
+        """1 = fully shown; toward 0 at the ends of a rotation slot."""
+        if not self.period:
+            return 1.0
+        t = now % self.period
+        return clamp(min(t, self.period - t) / self.FADE, 0.0, 1.0)
 
     def frame(self, now):
         s = self.s
+        if self.period:
+            if int(now // self.period) != self.slot:
+                self.respawn = True  # the next painting (and a fresh look at the terminal's colours)
+            left = self.period - now % self.period
+            self.fps = 10 if left < self.FADE + 1 or now % self.period < self.FADE else 1
         if not self.art:
             s.put(s.h // 2, 1, "no paintings yet: run zen-gallery.py", self.ink)
             return
-        for (row, col), bits in self.cells.items():
-            s.put(row, col, pix(bits), self.ink)
-        if self.side == "right":  # the caption plate, bottom right, on black
+        k = self.fade(now)
+        if k < 1 and not self.dots:  # dissolving: only the dots whose threshold k still clears
+            cells = {}
+            for key, bit, r in self.dotr:
+                if r <= k:
+                    cells[key] = cells.get(key, 0) | bit
+            for (row, col), bits in cells.items():
+                if self.rgb:
+                    s.put_sgr(row, col, self.glyph(bits), self.ccells[(row, col)][1])
+                else:
+                    s.put(row, col, self.glyph(bits), self.ink, self.attr)
+        else:
+            if self.rgb:
+                for (row, col), (ch, sgr) in self.ccells.items():
+                    s.put_sgr(row, col, ch, sgr)
+            for (row, col), cell in self.cells.items():
+                s.put(row, col, cell if self.dots else self.glyph(cell), self.ink, self.attr)
+        if self.side == "right" or self.mode == "whole":  # the caption plate, bottom outer corner
             lines = [l for l in self.art[3] if l]
             width = min(s.w - 2, max(len(l) for l in lines) + 2)
             top = s.h - len(lines) - 2
+            left = s.w - width - 1 if self.side == "right" else 1
             for i in range(len(lines) + 2):
-                s.put(top + i, s.w - width - 1, " " * width, self.ink)
+                s.put(top + i, left, " " * width, self.ink)
             for i, line in enumerate(lines):
-                s.put(top + 1 + i, s.w - width, line[:width - 2], self.ink,
+                s.put(top + 1 + i, left + 1, line[:width - 2], self.ink,
                       curses.A_BOLD if i == 0 else getattr(curses, "A_ITALIC", 0) if i == 1 else curses.A_DIM)
 
 
@@ -1924,8 +2221,8 @@ def main(scr, style, side):
         scene = Coffee(s, side)
     elif style == "matrix":
         scene = Matrix(s, side)
-    elif style == "gallery":
-        scene = Gallery(s, side)
+    elif style in ("gallery", "gallery-color"):
+        scene = Gallery(s, side, color=style == "gallery-color")
     elif style == "host":
         # host on the left, user on the right: MONST3R | (your work) | AVASHEVKO
         if side == "left":
@@ -1939,7 +2236,9 @@ def main(scr, style, side):
     pane = os.environ.get("TMUX_PANE", "")
     # one tmux call a second: respawn when the style options change, re-center
     # when the width does, and pause while no client can see this window
-    fmt = "#{@zen-style}|#{@zen-spacer}|#{@zen-pixels}\t#{@zen-width}|#{window_width}\t#{window_id}|#{window_zoomed_flag}"
+    # (client_theme: tmux's read of the terminal going light/dark, e.g. an
+    # ansil16 switch; a respawn re-asks the terminal for its colours)
+    fmt = "#{@zen-style}|#{@zen-spacer}|#{@zen-pixels}|#{client_theme}\t#{@zen-width}|#{window_width}\t#{window_id}|#{window_zoomed_flag}"
 
     def poll():
         return (tmux("display", "-p", "-t", pane, fmt).split("\t") + ["", ""])[:3]
@@ -1975,11 +2274,50 @@ def main(scr, style, side):
         scr.erase()
         scene.frame(time.time())
         s.refresh()
+        if pane and getattr(scene, "respawn", False):
+            tmux("run-shell", "-b", f"'{HERE}/zen.sh' respawn '{pane}' '{side}' '{os.environ.get('ZEN_CENTER', '')}' '{os.environ.get('ZEN_SEED', '0')}'")
+            time.sleep(5)
         time.sleep(1 / scene.fps)
+
+
+TERM_BG = None      # the terminal's background (linear rgb), asked at startup
+TERM_PALETTE = {}   # its 16 colours, index -> linear rgb
+
+
+def query_colors(timeout=0.6):
+    """Ask the terminal for its background (OSC 11) and 16 colours (OSC 4).
+    tmux answers for its client, so this sees colours set at runtime (e.g. by
+    ansil16 through kitty), even over ssh. Before curses starts; best effort."""
+    global TERM_BG
+    try:
+        import termios
+        import tty
+        import select
+        fd = sys.stdin.fileno()
+        old = termios.tcgetattr(fd)
+    except (ImportError, OSError, ValueError):
+        return
+    try:
+        tty.setraw(fd)
+        os.write(1, b"\033]11;?\033\\" + b"".join(b"\033]4;%d;?\033\\" % i for i in range(16)))
+        buf, end = b"", time.time() + timeout
+        while time.time() < end and buf.count(b"rgb:") < 17:
+            if select.select([fd], [], [], 0.05)[0]:
+                buf += os.read(fd, 1024)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+    def rgb(m):
+        return tuple(srgb_lin(int(h, 16) / (16 ** len(h) - 1) * 255) for h in m)
+    for m in re.finditer(rb"\]11;rgb:([0-9a-fA-F]+)/([0-9a-fA-F]+)/([0-9a-fA-F]+)", buf):
+        TERM_BG = rgb(g.decode() for g in m.groups())
+    for m in re.finditer(rb"\]4;(\d+);rgb:([0-9a-fA-F]+)/([0-9a-fA-F]+)/([0-9a-fA-F]+)", buf):
+        TERM_PALETTE[int(m.group(1))] = rgb(g.decode() for g in m.groups()[1:])
 
 
 if __name__ == "__main__":
     style = sys.argv[1] if len(sys.argv) > 1 else "garden"
+    query_colors()
     try:
         curses.wrapper(main, style, os.environ.get("ZEN_SIDE", "left"))
     except KeyboardInterrupt:
