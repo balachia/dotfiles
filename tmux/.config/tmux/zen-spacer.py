@@ -1542,11 +1542,16 @@ class Gallery:
     its own half so nothing hides behind your work; a portrait or square one
     hangs whole, at its true shape, with a second one opposite as its
     pendant), split, whole, or span (one painting across the window, its
-    middle behind your work). Ink: @zen-ink (a colour, or random), else
-    the painting's own dominant colour. @zen-pixels dots uses the Zen Dots font (4 levels).
-    Style gallery-color: the painting's own colours, braille in the xterm
-    256-colour cube and gray ramp (your 16-colour palette is left alone),
-    blended toward the background (@zen-gallery-blend; 0.3 on dark, 0.05 on light). The
+    middle behind your work).
+    Colour: the painting's own, per cell, blended toward the background
+    (@zen-gallery-blend; 0.3 on dark, 0.05 on light). @zen-gallery-palette
+    picks the inks: 256 (default on dark: the xterm 256-colour cube and gray
+    ramp, your 16-colour palette left alone), both (default on light: the
+    cube plus your terminal's own 16), ansi (only your 16), rgb (24-bit, each
+    cell its exact colour), or mono: one ink for the whole painting, @zen-ink
+    (a colour, or random), else the painting's own dominant colour; mono also
+    lets @zen-pixels dots use the Zen Dots font (4 levels). (Style
+    gallery-color is an old alias of gallery.) The
     background is asked of the terminal at startup (@zen-bg overrides); on a
     light one the dots become ink on paper, drawn where the painting is dark.
     @zen-gallery-ground on|off: a background shade per cell under the
@@ -1558,10 +1563,10 @@ class Gallery:
     fps = 1
     FADE = 4.0     # seconds to dissolve out, and again to condense in
 
-    def __init__(self, s, side, color=False):
+    def __init__(self, s, side):
         self.s, self.side = s, side
         self.frame_opt = opt("zen-gallery-frame") or "auto"
-        self.color = color
+        self.color = opt("zen-gallery-palette") != "mono"  # mono: the single-ink gallery
         hexbg = (opt("zen-bg") or "").lstrip("#")
         self.bg = (tuple(srgb_lin(int(hexbg[i:i + 2], 16)) for i in (0, 2, 4))
                    if re.fullmatch(r"[0-9a-fA-F]{6}", hexbg) else TERM_BG or (0.0, 0.0, 0.0))
@@ -1762,7 +1767,7 @@ class Gallery:
             pal += [(n, rgb, oklab(*rgb)) for n, rgb in sorted(TERM_PALETTE.items())
                     if sum((a - b) ** 2 for a, b in zip(oklab(*rgb), bgl)) > 0.01]  # not the background itself
         pal = pal or [(n, rgb, oklab(*rgb)) for n, rgb in xterm256()]
-        default = 0.05 if self.light else 0.3  # toward paper, blending just grays the inks
+        default = 0.0  # full colour; @zen-gallery-blend raises it (toward the background)
         try:
             blend = clamp(float(opt("zen-gallery-blend") or default), 0.0, 0.95)
         except ValueError:
@@ -1947,20 +1952,20 @@ class Gallery:
             "...XXXXXXXXXX...",
             "..XXXXXXXXXXXX..",
         ],
-        "painter": [           # hair up in a bun, a brush through it, falling to the shoulders
-            ".......XX...X...",
-            "......XXXX.X....",
+        "painter": [           # straight bangs, a high ponytail that swings as she talks
+            ".........XXX....",
+            ".....XXXXXX.XXX.",
+            "....XXXXXXXX.XXX",
+            "...XXXXXXXXXX.XX",
+            "...XXXXXXXXXX.XX",
+            "...X........X.XX",
+            "...X..e..e..X.tT",
+            "...X........X.tT",
+            "...X........X...",
+            "...X...oo...X...",
+            "....X......X....",
             ".....XXXXXX.....",
-            "...XXXXXXXXXX...",
-            "..XXXXXXXXXXXX..",
-            "..XX........XX..",
-            "..XX..e..e..XX..",
-            "..XX........XX..",
-            "..XX........XX..",
-            "..XX..cccc..XX..",
-            "..XX..oooo..XX..",
-            "..XX.XXXXXX.XX..",
-            "..XX..X..X..XX..",
+            ".......XX.......",
             "....XXXXXXXX....",
             "...XXXXXXXXXX...",
             "..XXXXXXXXXXXX..",
@@ -2779,8 +2784,8 @@ def main(scr, style, side):
         scene = Coffee(s, side)
     elif style == "matrix":
         scene = Matrix(s, side)
-    elif style in ("gallery", "gallery-color"):
-        scene = Gallery(s, side, color=style == "gallery-color")
+    elif style in ("gallery", "gallery-color"):  # gallery-color: old name, kept working
+        scene = Gallery(s, side)
     elif style == "ink":
         scene = Ink(s, side)
     elif style == "host":
@@ -2798,7 +2803,7 @@ def main(scr, style, side):
     # when the width does, and pause while no client can see this window
     # (client_theme: tmux's read of the terminal going light/dark, e.g. an
     # ansil16 switch; a respawn re-asks the terminal for its colours)
-    fmt = "#{@zen-style}|#{@zen-spacer}|#{@zen-pixels}|#{client_theme}\t#{@zen-width}|#{window_width}\t#{window_id}|#{window_zoomed_flag}"
+    fmt = "#{@zen-style}|#{@zen-spacer}|#{@zen-pixels}|#{@zen-gallery-palette}|#{client_theme}\t#{@zen-width}|#{window_width}\t#{window_id}|#{window_zoomed_flag}"
 
     def poll():
         return (tmux("display", "-p", "-t", pane, fmt).split("\t") + ["", ""])[:3]
