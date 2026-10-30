@@ -82,12 +82,17 @@ def opt(name):
 class Screen:
     def __init__(self, scr):
         self.scr = scr
+        # curses may notice lines moving (the docent's scrolling transcript)
+        # and use the terminal's scroll or insert/delete: that drags along
+        # the cells we write around it and leaves blank rows. Plain redraws only.
+        scr.idlok(False)
+        scr.idcok(False)
         self.raw, self.shown = {}, {}
         self.resize()
 
     def resize(self):
         self.h, self.w = self.scr.getmaxyx()
-        self.shown = {}  # the screen was cleared: draw every raw cell afresh
+        self.shown, self.texts = {}, {}  # the screen was cleared: draw every raw cell afresh
         # where this pane sits in the window, for window-wide ("world") scenes
         geo = tmux("display", "-p", "-t", os.environ.get("TMUX_PANE", ""), "#{pane_left} #{window_width}").split()
         self.x0, self.world_w = (int(geo[0]), int(geo[1])) if len(geo) == 2 else (0, self.w)
@@ -120,7 +125,24 @@ class Screen:
                 pass
 
     def refresh(self):
+        # curses repaints a line whose text changed, and may do it in ways
+        # (clearing from the left, rewriting the run) that wipe our raw cells
+        # on it, which it thinks are blank: find those lines, redo their cells
+        lines = {}
+        for y in {y for (y, x) in self.raw} | {y for (y, x) in self.shown}:
+            try:
+                lines[y] = self.scr.instr(y, 0)
+            except curses.error:
+                pass
+        changed = {y for y, text in lines.items() if self.texts.get(y) != text}
+        self.texts = lines
         self.scr.refresh()
+        # where curses just left the terminal's cursor, and believes it still is:
+        # read it now, as inch() below moves the window's cursor (so do the
+        # instr() above, but before the refresh). Putting the cursor back
+        # anywhere else makes curses' next relative moves (ESC M, CSI n C)
+        # land off by a row/columns and garble the docent's lines.
+        cy, cx = self.scr.getyx()
         out = []
         # a raw cell gone since last frame is a space to curses both times, so
         # curses never repaints it: blank it ourselves. (Not by redrawing its
@@ -131,13 +153,12 @@ class Screen:
                 out.append(f"\x1b[{y + 1};{x + 1}H\x1b[0m ")
         if self.raw or out:
             for (y, x), cell in self.raw.items():
-                if self.shown.get((y, x)) == cell:
-                    continue  # already on screen: curses leaves it alone too
+                if self.shown.get((y, x)) == cell and y not in changed:
+                    continue  # already on screen, on a line curses left alone
                 ch, color, attr = cell
                 sgr = color if isinstance(color, str) else (
                     "0;3%d" % color + (";1" if attr & curses.A_BOLD else "") + (";2" if attr & curses.A_DIM else ""))
                 out.append(f"\x1b[{y + 1};{x + 1}H\x1b[{sgr}m{ch}")
-            cy, cx = self.scr.getyx()
             out.append(f"\x1b[0m\x1b[{cy + 1};{cx + 1}H")  # leave things as curses left them
             os.write(1, "".join(out).encode())
         self.shown, self.raw = self.raw, {}
@@ -1506,8 +1527,10 @@ def plaque_words(png, pick=0):
         return {}
     takes = words.get("takes") or [words]  # (the one-take format)
     take = takes[pick % len(takes)] if takes else {}
-    return {k: re.sub(r"[^\w .,;:'!?()&\-\u2013\u2014/\"]", "", str(take.get(k, "")))[:400]
-            for k in ("plaque", "critic")}
+    out = {k: re.sub(r"[^\w .,;:'!?()&\-\u2013\u2014/\"]", "", str(take.get(k) or take.get("critic", "")))[:400]
+           for k in ("plaque", "spoken")}
+    out["angle"] = take.get("angle", 2) if isinstance(take.get("angle", 2), int) else 2
+    return out
 
 
 class Gallery:
@@ -1526,6 +1549,8 @@ class Gallery:
     blended toward the background (@zen-gallery-blend; 0.3 on dark, 0.05 on light). The
     background is asked of the terminal at startup (@zen-bg overrides); on a
     light one the dots become ink on paper, drawn where the painting is dark.
+    @zen-gallery-ground on|off: a background shade per cell under the
+    dots (default on for a light background).
     Rotation: every @zen-gallery-rotate minutes (default 5, 0 = never) the
     next painting, on the shared clock so both sides turn together: the old
     one dissolves dot by dot into the background, the spacer respawns (and so
@@ -1543,6 +1568,8 @@ class Gallery:
         # on a light background dots are ink on paper: drawn where it's dark
         self.light = 0.2126 * self.bg[0] + 0.7152 * self.bg[1] + 0.0722 * self.bg[2] > 0.25
         self.dots = opt("zen-pixels") == "dots"
+        # the ground (see paint_ground): on by default on paper, where dots alone are too faint
+        self.ground = opt("zen-gallery-ground") == "on" or (self.light and opt("zen-gallery-ground") != "off")
         # braille dots cover maybe a third of a cell: light dots on dark glow
         # past that, dark dots on paper can't get dark enough. So on a light
         # background octants (solid sub-cells) unless @zen-pixels says otherwise
@@ -1556,13 +1583,16 @@ class Gallery:
         self.slot = int(time.time() // self.period) if self.period else 0
         self.respawn = False
         self.born = time.time()
-        self.words, self.words2 = {}, {}
+        self.seq = []
         self.art = self.pick()
         ink = (opt("zen-ink") or (self.art and self.art[4]) or "white").upper()
         if ink == "RANDOM":
             ink = random.Random(int(os.environ.get("ZEN_SEED", "0")) + 1).choice([h for _, h in HUES] + ["WHITE"])
         self.ink = getattr(curses, f"COLOR_{ink}", curses.COLOR_WHITE)
         self.attr = curses.A_BOLD if ink == "BLUE" else 0
+        if not opt("zen-ink"):  # a painting's own colour may not read on this background
+            idx = self.readable_ink(self.ink + (8 if self.attr else 0))
+            self.ink, self.attr = idx % 8, curses.A_BOLD if idx >= 8 else 0
         self.resize()
 
     def pick(self):
@@ -1595,11 +1625,15 @@ class Gallery:
         self.mode = {"auto": "whole" if tall(pool[idx]) else "split"}.get(self.frame_opt, self.frame_opt)
         if self.mode not in ("split", "whole", "span"):
             self.mode = "split"
-        if self.mode == "whole" and self.side == "right":  # its pendant: the next tall one
+        pend = idx
+        if self.mode == "whole":  # the pendant opposite: the next tall one
             for j in range(1, len(pool)):
                 if tall(pool[(idx + j) % len(pool)]):
-                    idx = (idx + j) % len(pool)
+                    pend = (idx + j) % len(pool)
                     break
+        left_png = pool[idx][1]
+        if self.mode == "whole" and self.side == "right":
+            idx = pend
         meta, png = pool[idx]
         try:
             w, h, rows = read_png(png)
@@ -1623,13 +1657,22 @@ class Gallery:
         caption = [str(meta.get("artist", ""))[:60], str(meta.get("title", ""))[:60], str(meta.get("date", ""))[:40]]
         # a different take each time it comes around (or each toggle)
         take = self.slot // max(1, len(pool)) if self.period else seed
-        self.words = plaque_words(png, take)
-        self.words2 = {}
-        if self.mode == "whole" and self.side == "left":  # the pendant opposite, for the docent
-            for j in range(1, len(pool)):
-                if tall(pool[(idx + j) % len(pool)]):
-                    self.words2 = plaque_words(pool[(idx + j) % len(pool)][1], take)
+        # what gets said, in order, and in which panel: with pendants the left
+        # painting's take in the left panel, then the right one's in the
+        # right (both sides load both, so they agree on the timing); one
+        # painting across both panels gets one take, in the right panel
+        if self.mode == "whole":
+            first = plaque_words(left_png, take)
+            who = self.ANGLE_CAST[first.get("angle", 2) % len(self.ANGLE_CAST)]
+            second = {}
+            for j in range(1, 8):  # the opposite painting's take: someone else speaks it
+                second = plaque_words(pool[pend][1], take + j)
+                if self.ANGLE_CAST[second.get("angle", 2) % len(self.ANGLE_CAST)] != who:
                     break
+            self.seq = [("left", first), ("right", second)]
+        else:
+            self.seq = [("right", plaque_words(png, take))]
+        self.seq = [(side, w) for side, w in self.seq if w.get("plaque")]
         return (w, h, rows, [re.sub(r"[^\w .,;:'&()\-\u2013\u2014/]", "", c) for c in caption],
                 painting_ink(png[:-4] + "-color.png"))
 
@@ -1667,6 +1710,9 @@ class Gallery:
                 return 0.0  # the wall around a hung painting
             v = rows[int(sy)][int(sx)]
             return 1 - v if self.light else v
+        if self.ground:
+            self.paint_ground(tone, scale, cx, cy, ay, fx, w, h)
+            return
         if self.rgb:
             self.paint_color(tone, scale, cx, cy, ay, fx, w, h)
             return
@@ -1765,95 +1811,298 @@ class Gallery:
                     err[row + dr][col + dc] = tuple(o[i] + left[i] * wgt for i in range(3))
                 self.ccells[(row, col)] = (self.glyph(bits), f"0;38;5;{n}")
 
+    def palette16(self):
+        return TERM_PALETTE or {i: tuple(srgb_lin(c) for c in rgb) for i, rgb in enumerate(
+            [(0, 0, 0), (205, 0, 0), (0, 205, 0), (205, 205, 0), (0, 0, 238), (205, 0, 205), (0, 205, 205), (229, 229, 229)])}
+
+    def readable_ink(self, idx):
+        """Palette index idx, or if it's too close to the background to read
+        (say a yellow on paper), the readable palette colour nearest in hue."""
+        pal = self.palette16()
+        bl = oklab(*self.bg)
+        il = oklab(*pal.get(idx, (0.8, 0.8, 0.8)))
+        if abs(il[0] - bl[0]) >= 0.35:
+            return idx
+        ok = [i for i, c in pal.items() if abs(oklab(*c)[0] - bl[0]) >= 0.35]
+        hue = math.atan2(il[2], il[1])
+
+        def hue_gap(i):
+            lab = oklab(*pal[i])
+            return abs((math.atan2(lab[2], lab[1]) - hue + math.pi) % (2 * math.pi) - math.pi)
+        return min(ok, key=hue_gap) if ok else min(pal, key=lambda i: oklab(*pal[i])[0] if self.light else -oklab(*pal[i])[0])
+
+    def ink_lin(self):
+        return self.palette16().get(self.ink + (8 if self.attr & curses.A_BOLD else 0), (0.8, 0.8, 0.8))
+
+    GCOVER = 0.35   # how much of a cell a full set of braille dots covers
+
+    def paint_ground(self, tone, scale, cx, cy, ay, fx, w, h):
+        """Braille with a ground (@zen-gallery-ground on): each cell's
+        background colour carries the coarse tone (the cell's ink, blurred
+        over its neighbours), and its dots the detail around it: ink dots
+        where a spot is darker than the ground, paper dots where it's lighter.
+        Dots alone only reach a third of the way to ink; with the ground, the
+        full range. 24-bit colour, so the ground can be any shade."""
+        rows_, cols_ = self.H // 4, self.W // 2
+        lin = self.rgb[2] if self.rgb else None
+        mono = self.ink_lin()
+
+        def ink_at(dots):  # this cell's ink: the painting's colour, deep on paper
+            if not lin:
+                return mono
+            cw, ch = self.rgb[0], self.rgb[1]
+            avg = [0.0, 0.0, 0.0]
+            for x, y in dots:
+                px = (cx + (x + fx + 0.5) / scale) / w * cw
+                py = (cy + (y + 0.5) * ay / scale) / h * ch
+                c = lin[min(ch - 1, max(0, int(py)))][min(cw - 1, max(0, int(px)))]
+                avg = [a + v / 8 for a, v in zip(avg, c)]
+            peak = max(avg)
+            depth = 0.25 if self.light else 1.0
+            return tuple(depth * v / peak for v in avg) if peak > 1e-4 else mono
+
+        cells, means = [], {}
+        for row in range(rows_):
+            for col in range(cols_):
+                dots = [(col * 2 + c, row * 4 + r) for c, r in DOT_ORDER]
+                tones = [tone(x, y) for x, y in dots]
+                means[(row, col)] = sum(tones) / 8
+                cells.append(((row, col), tones, [DITHER[y % 64][(x + self.ox) % 64] for x, y in dots],
+                              dots, ink_at(dots)))
+        # the ground follows a blurred tone, so neighbouring cells' shades step
+        # gently and the dots carry the edges
+        self.gcells = []
+        for key, tones, ds, dots, ink in cells:
+            r, c = key
+            near = [means[(r + i, c + j)] for i in (-1, 0, 1) for j in (-1, 0, 1) if (r + i, c + j) in means]
+            self.gcells.append((key, tones, ds, dots, ink, sum(near) / len(near)))
+        self.ccells = self.render_ground(1.0)
+
+    def render_ground(self, k):
+        out, paper = {}, self.bg
+        for key, tones, ds, dots, ink, m in self.gcells:
+            a, ts = m * k, [t * k for t in tones]
+            if a < 0.02 and max(ts) < 0.06:
+                continue  # bare paper
+            bits = 0
+            if a < 0.5:   # light area: a lighter ground, ink dots for the darker spots
+                b = max(0.0, a - self.GCOVER * 0.5)
+                fg = ink
+                for (x, y), t, d in zip(dots, ts, ds):
+                    if (t - b) / (self.GCOVER * (1 - b)) > d:
+                        bits |= Braille.BIT[(x % 2, y % 4)]
+            else:         # dark area: a deep ground, paper dots for the lighter spots
+                b = min(1.0, a + self.GCOVER * 0.5)
+                fg = paper
+                for (x, y), t, d in zip(dots, ts, ds):
+                    if (b - t) / (self.GCOVER * b) > d:
+                        bits |= Braille.BIT[(x % 2, y % 4)]
+            bg = tuple(p + (i - p) * b for p, i in zip(paper, ink))
+            sgr = "0;38;2;%d;%d;%d;48;2;%d;%d;%d" % (tuple(lin_srgb(v) for v in fg) + tuple(lin_srgb(v) for v in bg))
+            out[key] = (chr(0x2800 + bits) if bits else " ", sgr)
+        return out
+
     def glyph(self, bits):
         return OCTANTS[bits] if self.octant else chr(0x2800 + bits)
 
-    # the critic: 16x16 pixels (octants: 8 columns x 4 rows), a round little
-    # man under a big bowler, all moustache. e = eye; o = only while talking
-    # (the moustache stays put; a little mouth opens under it)
-    CRITIC = [
-        "....XXXXXXXX....",
+    # the cast: 16x16 pixels each (octants: 8 columns x 4 rows). e = eye,
+    # o = only while talking, c = only while quiet. Each speaks some angles
+    # (zen-gallery.py ANGLES): composition the artist, technique the
+    # painter, subject and art history the critic, the period the
+    # professor, the gut reaction the everyman
+    CAST = {
+        "critic": [            # bowler, moustache; the mouth opens under it
+            "....XXXXXXXX....",
+            "...XXXXXXXXXX...",
+            "...XXXXXXXXXX...",
+            "...XXXXXXXXXX...",
+            ".XXXXXXXXXXXXXX.",
+            "...X........X...",
+            "...X..e..e..X...",
+            "...X........X...",
+            "...X.XXXXXX.X...",
+            "...X...oo...X...",
+            "....X......X....",
+            ".....XXXXXX.....",
+            "......X..X......",
+            "....XX.XX.XX....",
+            "...XXXXXXXXXX...",
+            "..XXXXXXXXXXXX..",
+        ],
+        "artist": [            # slouched beret, a big goatee; a mouth appears above it as he talks
+            "......XX........",
+            "...XXXXXXXX.....",
+            ".XXXXXXXXXXXX...",
+            ".XXXXXXXXXXXXX..",
+            "...XXXXXXXXXX...",
+            "...X........X...",
+            "...X..e..e..X...",
+            "...X........X...",
+            "...X........X...",
+            "...X...oo...X...",
+            "....X.XXXX.X....",
+            ".....XXXXXX.....",
+            "......XXXX......",
+            ".......XX.......",
+            "...XXXXXXXXXX...",
+            "..XXXXXXXXXXXX..",
+        ],
+        "painter": [           # hair up in a bun, a brush through it, falling to the shoulders
+            ".......XX...X...",
+            "......XXXX.X....",
+            ".....XXXXXX.....",
+            "...XXXXXXXXXX...",
+            "..XXXXXXXXXXXX..",
+            "..XX........XX..",
+            "..XX..e..e..XX..",
+            "..XX........XX..",
+            "..XX........XX..",
+            "..XX..cccc..XX..",
+            "..XX..oooo..XX..",
+            "..XX.XXXXXX.XX..",
+            "..XX..X..X..XX..",
+            "....XXXXXXXX....",
+            "...XXXXXXXXXX...",
+            "..XXXXXXXXXXXX..",
+        ],
+        "professor": [         # hair up in a bun, opaque glasses with a glint, pearls
+            "................",
+            ".......XXX......",
+            ".......XXX......",
+            ".....XXXXXXX....",
+            "....XXXXXXXXX...",
+            "...XX.......XX..",
+            "...X.gXh.gXh.X..",    # g/h top corners, G centre: a glint is a
+            "...X.XGXXXGX.X..",    # corner plus the centre, a diagonal streak
+            "...X.XXX.XXX.X..",
+            "...X...ooo...X..",
+            "....X.......X...",
+            ".....XXXXXXX....",
+            ".......X.X......",
+            ".....X.X.X.X....",
+            "...XXXXXXXXXXX..",
+            "..XXXXXXXXXXXXX.",
+        ],
+    }
+    CAST["everyman"] = [       # the hussar (drawn by Tony): busby with a tassel
+        "...XXXXXXXXXX...",    # (t at rest, T swung), drooping moustache,
+        "...XXXXXXXXXXX..",    # mutton chops into the jaw, collar, braided coat
+        "...XXXXXXXXXX.X.",
+        "...XXXXXXXXXX.tT",
         "...XXXXXXXXXX...",
-        "...XXXXXXXXXX...",
-        "...XXXXXXXXXX...",
-        ".XXXXXXXXXXXXXX.",
         "...X........X...",
         "...X..e..e..X...",
         "...X........X...",
-        "...X.XXXXXX.X...",
-        "...X...oo...X...",
-        "....X......X....",
-        ".....XXXXXX.....",
+        "..XX.XXXXXX.XX..",
+        "..XX.X.oo.X.XX..",
+        "..XXX......XXX..",
+        "...XXXX..XXXX...",
         "......X..X......",
-        "....XX.XX.XX....",
-        "...XXXXXXXXXX...",
-        "..XXXXXXXXXXXX..",
+        ".XXXXX....XXXXX.",
+        "..XX.XXXXXX.XX..",
+        "..XXX..XX..XXX..",
     ]
+    ANGLE_CAST = ["artist", "painter", "critic", "critic", "professor", "everyman"]
     TYPE_RATE = 24.0   # characters a second
 
-    def critic_cells(self, mouth, look, blink):
+    def cast_mask(self, who):
+        """The cells a figure covers: per pixel row, everything between its
+        leftmost and rightmost mark (so faces are filled in), at cell size."""
+        cells = set()
+        for y, line in enumerate(self.CAST.get(who, self.CAST["critic"])):
+            marks = [x for x, c in enumerate(line) if c != "."]
+            for x in range(min(marks), max(marks) + 1) if marks else ():
+                cells.add((y // 4, x // 2))
+        return cells
+
+    def cast_cells(self, who, mouth, look, blink, swing=False, glint=None):
+        # glint: which top corner of her lenses catches the light (-1 left,
+        # +1 right, 0 none); by default the inner one, away from the side
+        # she looks to, so it never lands flush against her face outline
+        glint = -look if glint is None else glint
         bits = {}
-        for y, line in enumerate(self.CRITIC):
+        for y, line in enumerate(self.CAST.get(who, self.CAST["critic"])):
             for x, c in enumerate(line):
-                on = c == "X" or (c == "o" and mouth) or (c == "c" and not mouth)
+                on = (c == "X" or (c == "o" and mouth) or (c == "c" and not mouth)
+                      or (c == "t" and not swing) or (c == "T" and swing)
+                      or (c == "g" and glint != -1) or (c == "h" and glint != 1)
+                      or (c == "G" and not glint))
                 if c == "e" and not blink:
                     x, on = x + look, True       # eyes shift as he looks around
+                elif who == "professor" and 6 <= y <= 8 and 5 <= x <= 11:
+                    x += look                    # her glasses nudge as she looks around
                 if on:
                     key = (y // 4, x // 2)
                     bits[key] = bits.get(key, 0) | Braille.BIT[(x % 2, y % 4)]
         return bits
 
     def docent(self, now):
-        """Draw the plaque or the critic (@zen-gallery-docent: critic, plaque
-        or none) along the bottom of the left panel. The critic types out his
-        take, mouth flapping, then stands looking around the room."""
-        kind = opt("zen-gallery-docent") or "critic"
-        if kind not in ("plaque", "critic") or self.side != "left":
-            return False
-        # his painting, then (pendants) the one across the room, with a pause
-        texts = [t for t in (self.words.get(kind), self.words2.get(kind)) if t]
-        if not texts:
+        """Draw the cast or the plaque (@zen-gallery-docent: cast, plaque or
+        none) at the bottom of the panels, each take next to its painting:
+        whoever owns the take's angle stands at the panel's inner corner and
+        types it out, mouth going, finished lines scrolling up. With pendants
+        the left painting gets its say first, then the speaker pops across to
+        the right one. Returns True while typing in this panel."""
+        kind = opt("zen-gallery-docent") or "cast"
+        if kind == "critic":
+            kind = "cast"
+        if kind not in ("plaque", "cast") or not self.seq:
             return False
         s = self.s
         t = now - ((self.slot * self.period + self.FADE + 1) if self.period else self.born + 2)
-        which = 0
-        for i, txt in enumerate(texts[:-1]):
-            span = len(txt) / self.TYPE_RATE + 5.0   # typed, then left to read
-            if t >= span:
-                t -= span
-                which = i + 1
-        text = texts[which]
-        shown = int(t * self.TYPE_RATE) if t > 0 else 0
-        sprite = 9 if kind == "critic" else 0
+        texts = [w["plaque"] if kind == "plaque" else w["spoken"] for _, w in self.seq]
+        pause = 5.0
+        starts, at = [], 0.0
+        for txt in texts:
+            starts.append(at)
+            at += len(txt) / self.TYPE_RATE + pause
+        active = max((i for i, st in enumerate(starts) if t >= st), default=-1)
+        mine = [i for i, (side, _) in enumerate(self.seq) if side == self.side]
+        if not mine or t < starts[mine[0]]:
+            return False   # not this panel's turn yet
+        k = mine[0]
+        text = texts[k]
+        shown = int((t - starts[k]) * self.TYPE_RATE)
+        sprite = 9 if kind == "cast" else 0
         width = max(10, s.w - sprite - 4)
         lines = textwrap.wrap(text, width)
-        # he stands at the very bottom; the line being typed comes out at his
-        # moustache, and finished lines scroll up above it, teletype style
-        base = s.h - 4                          # his top row (he's 4 rows tall)
-        say = base + 2 if kind == "critic" else s.h - 2   # the row his words come out on
-        upto, cur = shown, 0
+        base = s.h - 4                          # the speaker's top row (4 rows tall)
+        say = base + 2 if kind == "cast" else s.h - 2   # the line being typed: level with the mouth
+        upto, cur = shown, len(lines) - 1
         for i, line in enumerate(lines):        # which line is being typed, and how far
-            if upto <= len(line) or i == len(lines) - 1:
+            if upto <= len(line):
                 cur = i
                 break
             upto -= len(line) + 1
-        visible = range(max(0, cur - 5), cur + 1)
-        if kind == "critic":
-            for r in range(base, s.h):          # a patch of wall for him to stand on
-                s.put(r, 0, " " * sprite, self.ink)
-        for i in visible:
+        else:
+            upto = len(lines[-1])
+        # the speaker stands at the panel's inner corner (by your work), the
+        # words to the outer side of them
+        sx = s.w - sprite - 1 if self.side == "left" else 1
+        tx = 1 if self.side == "left" else sprite + 2
+        for i in range(max(0, cur - max(8, s.h // 3)), cur + 1):
             row = say - (cur - i)
-            s.put(row, sprite, " " * (s.w - sprite - 1), self.ink)
-            s.put(row, sprite + 2, lines[i] if i < cur else lines[i][:max(0, upto)], self.ink,
+            s.put(row, tx - 1, " " * (width + 2), self.ink)
+            s.put(row, tx, lines[i] if i < cur else lines[i][:max(0, upto)], self.ink,
                   getattr(curses, "A_ITALIC", 0) if kind == "plaque" else 0)
-        typing = 0 < shown < len(text)
-        if kind == "critic":
+        typing = active == k and shown < len(text)
+        if kind == "cast" and active >= k:      # here from their turn on: done, they stay and look around
+            who = self.ANGLE_CAST[self.seq[k][1].get("angle", 2) % len(self.ANGLE_CAST)]
+            # no patch of wall: only the figure's own cells are cleared, so the
+            # face is blank and the painting runs right up to the outline
+            for row, col in self.cast_mask(who):
+                s.put(base + row, sx + col, " ", self.ink)
             mouth = typing and int(now * 8) % 2 == 0
-            phase = int(now // 2.5)
-            look = (1 if which else 0) if typing else (-1, 0, 1, 0)[int(hash01(phase, 61) * 4)]  # across, at the pendant
+            # while talking they face their painting; then they look around
+            look = (1 if self.side == "right" else -1) if typing else (-1, 0, 1, 0)[int(hash01(int(now // 2.5), 61) * 4)]
             blink = (now % 4.7) < 0.15
-            for (row, col), bits in self.critic_cells(mouth, look, blink).items():
-                s.put(base + row, 1 + col, OCTANTS[bits], self.ink)
+            # the professor's glasses glint on the inner corner as she glances
+            # aside, and flash briefly now and then while she looks ahead
+            glint = -look if look else (1 if (now % 3.7) < 0.6 else 0)
+            # a tassel swings with the head as they talk, and now and then after
+            swing = (int(now * 5) % 3 == 0) if typing else (now % 6.3) < 0.4
+            for (row, col), bits in self.cast_cells(who, mouth, look, blink, swing, glint).items():
+                s.put(base + row, sx + col, OCTANTS[bits], self.ink)
         return typing
 
     def fade(self, now):
@@ -1874,7 +2123,10 @@ class Gallery:
             s.put(s.h // 2, 1, "no paintings yet: run zen-gallery.py", self.ink)
             return
         k = self.fade(now)
-        if k < 1 and not self.dots:  # dissolving: only the dots whose threshold k still clears
+        if self.ground:
+            for (row, col), (ch, sgr) in (self.ccells if k >= 1 else self.render_ground(k)).items():
+                s.put_sgr(row, col, ch, sgr)
+        elif k < 1 and not self.dots:  # dissolving: only the dots whose threshold k still clears
             cells = {}
             for key, bit, r in self.dotr:
                 if r <= k:
@@ -1885,7 +2137,7 @@ class Gallery:
                 else:
                     s.put(row, col, self.glyph(bits), self.ink, self.attr)
         else:
-            if self.rgb:
+            if self.rgb or self.ground:
                 for (row, col), (ch, sgr) in self.ccells.items():
                     s.put_sgr(row, col, ch, sgr)
             for (row, col), cell in self.cells.items():
@@ -1894,12 +2146,12 @@ class Gallery:
         if self.period and k >= 1:
             self.fps = 12 if speaking else 4   # the typewriter; then blinks and glances
         elif not self.period:
-            self.fps = 12 if speaking else 4 if self.words else 1
-        docent_here = self.side == "left" and self.words and (opt("zen-gallery-docent") or "critic") != "none"
+            self.fps = 12 if speaking else 4 if self.seq else 1
+        docent_here = any(side == self.side for side, _ in self.seq) and (opt("zen-gallery-docent") or "cast") != "none"
         if self.side == "right" or self.mode == "whole":  # the caption plate, an outer corner
             lines = [l for l in self.art[3] if l]
             width = min(s.w - 2, max(len(l) for l in lines) + 2)
-            top = 0 if docent_here else s.h - len(lines) - 2   # top left if the docent has the bottom
+            top = 0 if docent_here else s.h - len(lines) - 2   # the top, if the docent has the bottom
             left = s.w - width - 1 if self.side == "right" else 1
             for i in range(len(lines) + 2):
                 s.put(top + i, left, " " * width, self.ink)

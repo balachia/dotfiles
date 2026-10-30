@@ -8,8 +8,8 @@ image server: small grayscale PNGs plus a caption each. Stdlib only.
   zen-gallery.py --add "grande jatte"   ...or the best search hit
   zen-gallery.py --commons "school of athens raphael"   from Wikimedia Commons
                                   (public domain only; needs ImageMagick or sips)
-  zen-gallery.py --plaques        top up each painting's takes (wall text + the
-                                  critic's version) to 4 (LLM gateway, fact-checked)
+  zen-gallery.py --plaques        top up each painting to one take per angle (wall
+                                  text + a cast member's version; fact-checked)
   zen-gallery.py --if-stale 20    (for cron) do nothing if the last run was recent
 
 Plaques: a cheap model writes a museum wall text and the same facts in the
@@ -200,16 +200,38 @@ CHECK_SYS = ("You are a skeptical art historian fact-checking museum texts. Be s
              "description of something not in the painting is inaccurate. Reply with one JSON object only.")
 
 
-VARIANTS = 4   # takes kept per painting, each looking at something different
-ANGLES = ["one specific thing to look at in the composition",
-          "the technique: brushwork, colour, surface",
-          "the story or subject, and what it meant to its first viewers",
-          "where it sits in the artist's life or the history of art"]
+# each angle is spoken by one of the cast (the spacer draws the matching figure)
+PERSONAS = {
+    "artist": ("a passionate working painter: practical, earthy, all about where things sit "
+               "and why, never pretentious"),
+    "painter": ("a materials-obsessed painter: pigments, grounds, brushes, how the paint was "
+                "actually put down; warm, exacting, a little conspiratorial"),
+    "critic": ("a pompous but loving little art critic: fussy, a little vain, delighted, never "
+               "cruel to the artist"),
+    "professor": ("a dry, precise history professor: dates, events, how people lived and what "
+                  "they feared, gently pedantic"),
+    "everyman": ("a plain-spoken fellow of about 1900, big moustache and sideburns, who talks "
+                 "only in concrete things (weather, barns, tools, mules, stovepipes, fence wire, "
+                 "dust, bread, boots), never an abstract or art word; everything he says comes as "
+                 "a comparison from hard-scrabble dust-bowl life, and he mixes his metaphors, two "
+                 "images colliding in one sentence; honest, warm, never mocking; he never states "
+                 "a verdict outright (no 'I like it', 'looks strong', 'that's good', 'beautiful'), "
+                 "his approval or unease shows only in what he points at and what he compares it "
+                 "to; the facts he mentions (what's in it, who, when) stay accurate"),
+}
+ANGLES = [("one specific thing to look at in the composition", "artist"),
+          ("the technique: brushwork, colour, surface, materials", "painter"),
+          ("the subject or story, and what it meant to its first viewers", "critic"),
+          ("where it sits in the history of art: what it came from and what it led to", "critic"),
+          ("the world it was made in: the politics, technology and daily life of its moment", "professor"),
+          ("the plain gut reaction: what it looks like and how it hits you, in everyday words", "everyman")]
+VARIANTS = len(ANGLES)
 
 
 def plaques():
-    """Top up each cached painting's takes to VARIANTS: a museum wall text and
-    the same facts from the critic, each pair checked by the verifier."""
+    """Top up each cached painting to one take per angle: a museum wall text,
+    and the same facts spoken by that angle's character, every take
+    fact-checked by the verifier (a different vendor's model)."""
     zs = runpy.run_path(os.path.join(HERE, "zen-slogans.py"), run_name="zen_slogans")
     base = zs["gateway"]()
     if not base:
@@ -224,39 +246,42 @@ def plaques():
                 have = json.load(f)
         except (OSError, ValueError):
             have = {}
-        takes = have.get("takes") or ([{"plaque": have["plaque"], "critic": have["critic"]}]
-                                      if have.get("plaque") else [])   # the one-take format
-        if len(takes) >= VARIANTS:
+        takes = [t for t in have.get("takes", []) if isinstance(t.get("angle"), int)]
+        todo = [i for i in range(VARIANTS) if i not in {t["angle"] for t in takes}]
+        if not todo:
             continue
         with open(path) as f:
             meta = json.load(f)
         about = f"Painting: {meta['title']}\nArtist: {meta['artist']}\nDate: {meta['date']}"
-        angles = ANGLES[len(takes):VARIANTS]
         said = "".join(f"\n- {t['plaque']}" for t in takes)
         try:
             text, gen = zs["chat"](base, zs["GENERATOR"], PLAQUE_SYS, about + (
-                f"\n\nWrite {len(angles)} takes on this painting, each about a different thing:\n"
-                + "".join(f"{i + 1}. {a}\n" for i, a in enumerate(angles)) +
-                (f"\nAlready said (don't repeat these points):{said}\n" if said else "") +
-                "\nEach take is two texts, plain ASCII, each at most 300 characters:\n"
+                f"\n\nWrite {len(todo)} takes on this painting, one per angle below. Each take "
+                "is two texts, plain ASCII, each at most 300 characters:\n"
                 '"plaque": museum wall text, two or three sentences. If you are not sure of '
                 "facts about this particular work, speak about the artist's well-documented "
-                "style instead.\n"
-                '"critic": the same facts, spoken by a pompous but loving little art '
-                "critic: fussy, a little vain, delighted, never cruel to the artist. Speak "
-                "about the painting, not yourself: no stage directions, nothing about your "
-                "clothes or gestures, and don't open with 'I'.\n"
-                'Reply with a JSON array: [{"plaque": "...", "critic": "..."}, ...]'), 0.8)
-            new = [{k: " ".join(str(t.get(k, "")).split())[:320] for k in ("plaque", "critic")}
-                   for t in zs["json_array"](text) if isinstance(t, dict)]
-            new = [t for t in new if t["plaque"] and t["critic"]][:len(angles)]
+                "style or the period instead.\n"
+                '"spoken": the same facts, spoken by the character named, in their voice. '
+                "About the painting, not themselves: no stage directions, nothing about their "
+                "clothes or gestures, and don't open with 'I'.\n\nAngles:\n" +
+                "".join(f"{i}. {ANGLES[i][0]} -- spoken by {PERSONAS[ANGLES[i][1]]}\n" for i in todo) +
+                (f"\nAlready said (don't repeat these points):{said}\n" if said else "") +
+                '\nReply with a JSON array: [{"angle": n, "plaque": "...", "spoken": "..."}, ...]'), 0.8)
+            new = []
+            for t in zs["json_array"](text):
+                if isinstance(t, dict) and t.get("angle") in todo and t.get("angle") not in {n["angle"] for n in new}:
+                    take = {"angle": t["angle"]} | {k: " ".join(str(t.get(k, "")).split())[:320] for k in ("plaque", "spoken")}
+                    if take["plaque"] and take["spoken"]:
+                        new.append(take)
             if not new:
                 print(f"plaques: {meta['id']}: no text")
                 continue
             check, ver = zs["chat"](base, zs["VERIFIER"], CHECK_SYS, about + "\n\n" + "".join(
-                f"Take {i + 1}a: {t['plaque']}\nTake {i + 1}b: {t['critic']}\n" for i, t in enumerate(new)) + (
-                "\nFor each take, are both its texts factually accurate about this painting "
-                'and artist? Reply: {"accurate": [true/false per take], "reason": "short"}'), 0.0, effort="low")
+                f"Take {i + 1}a: {t['plaque']}\nTake {i + 1}b: {t['spoken']}\n" for i, t in enumerate(new)) + (
+                "\nFor each take, are both its texts factually accurate about this painting, "
+                "artist and period? Be strictest about historical context: a neat tie-in to "
+                'events that the work has no documented link to is inaccurate. Reply: '
+                '{"accurate": [true/false per take], "reason": "short"}'), 0.0, effort="low")
             verdict = zs["json_object"](check)
         except Exception as e:  # one painting failing shouldn't stop the rest
             print(f"plaques: {meta['id']}: {type(e).__name__}: {str(e)[:120]}")
@@ -267,12 +292,12 @@ def plaques():
             print(f"plaques: {meta['id']}: {len(new) - len(kept)} rejected: {str(verdict.get('reason', ''))[:140]}")
         if not kept:
             continue
-        takes += kept
+        takes = sorted(takes + kept, key=lambda t: t["angle"])
         with open(out_path + ".tmp", "w") as f:
             json.dump({"takes": takes, "generator": gen, "verifier": ver,
                        "date": datetime.date.today().isoformat()}, f)
         os.replace(out_path + ".tmp", out_path)
-        print(f"plaques: {meta['id']}: {len(takes)} takes; new: {kept[-1]['critic'][:70]}...")
+        print(f"plaques: {meta['id']}: {len(takes)}/{VARIANTS} takes; e.g. {ANGLES[kept[-1]['angle']][1]}: {kept[-1]['spoken'][:60]}...")
 
 
 def prune():
