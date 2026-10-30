@@ -398,11 +398,14 @@ KID_MOODS = ("bored: wants to go home, asks about the gift shop or lunch, but on
 # separately ("respectful"). Many paintings here aren't European.
 RESPECT = ("Treat the people, cultures and traditions in the picture with respect: no "
            "exoticising, no 'native', 'savage', 'oriental' or other colonial-era language, no "
-           "ethnic or racial generalisations, no caricatured accents. A character may be naive or "
+           "ethnic or racial generalisations, no caricatured accents. Any stylisation of a people "
+           "or tradition must be one its own members would recognise as theirs (an insider's, "
+           "emic idiom), never an outsider's caricature. A character may be naive or "
            "opinionated about the art, never about peoples.")
-RESPECT_CHECK = ("respectful: does it treat every people, culture and tradition with respect, "
-                 "without demeaning, exoticising or stereotyping any of them (no colonial-era "
-                 "language, ethnic generalisation or caricature)?")
+RESPECT_CHECK = ("respectful: would a thoughtful member of the culture or tradition involved find "
+                 "this portrayal respectful - is any stylisation emic (how they present "
+                 "themselves) rather than an outsider's caricature or exoticising view (no "
+                 "colonial-era language, ethnic generalisation, mock accent or stereotype)?")
 
 # Reactors know nothing but what they see, so their takes are written by a
 # vision model LOOKING at <id>-color.png (not from the title and the model's
