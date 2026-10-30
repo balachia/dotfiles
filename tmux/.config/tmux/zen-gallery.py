@@ -14,15 +14,19 @@ image server: small grayscale PNGs plus a caption each. Stdlib only.
                                   first, then the other angles round-robin
   zen-gallery.py --plaques --redo-angle 5 --only-angle 5
                                   rewrite every take of angle 5, touching no other
-                                  (no budget unless --budget is given)
+                                  (no budget unless --budget is given); an old take
+                                  is replaced only once its new one passes, and a
+                                  redo cut short resumes where it stopped
   zen-gallery.py --plaques --per-hour 300
                                   pace gateway calls to 300 in any trailing hour
                                   (default 500, or $ZEN_GALLERY_PER_HOUR); the
                                   key's quota is 600/h, shared with other tools
   zen-gallery.py --if-stale 20    (for cron) do nothing if the last run was recent
 
-A gateway 429 (the key's quota spent) stops a --plaques run at once, keeping
-every take already written, with exit status 75 (EX_TEMPFAIL).
+A gateway 429 (the key's hourly quota spent) stops a --plaques run at once,
+keeping every take already written, with exit status 75 (EX_TEMPFAIL); a 402
+(the key's dollar budget spent) the same way, with exit status 69
+(EX_UNAVAILABLE: waiting an hour won't help).
 
 Plaques: a cheap model writes a museum wall text and the same facts in the
 voice of a fussy little critic; a second model from another vendor checks
@@ -528,13 +532,25 @@ VISION_CHECK_SYS = ("You check short texts about a picture against the picture i
 
 
 # Every gateway call (generator and checker, text and vision) goes through
-# ask(): paced to PER_HOUR in any trailing hour, and a 429 stops the run.
+# ask(): paced to PER_HOUR in any trailing hour; a 429 or a 402 stops the run.
 PER_HOUR = 500   # the operator key allows 600/h, shared with the user's other tools
-EX_TEMPFAIL = 75
+EX_TEMPFAIL = 75     # exit status on a 429: the hourly quota resets on its own
+EX_UNAVAILABLE = 69  # ...on a 402: the key's dollar budget is spent until it resets or is raised
 
 
-class RateLimited(Exception):
-    """The gateway answered 429: the key's quota is spent; every further call would fail too."""
+class GatewayStop(Exception):
+    """A gateway answer that every further call would get too: stop the run."""
+
+
+class RateLimited(GatewayStop):
+    """The gateway answered 429: the key's request quota is spent."""
+
+
+class BudgetExhausted(GatewayStop):
+    """The gateway answered 402 (Bifrost's budget_exceeded): the key's spending budget is spent."""
+
+
+STOPS = {429: RateLimited, 402: BudgetExhausted}
 
 
 class Pacer:
@@ -575,7 +591,8 @@ def gateway_message(e):
         err = d.get("error") if isinstance(d, dict) else None
         msg = (err.get("message") if isinstance(err, dict) else err if isinstance(err, str) else
                d.get("message") if isinstance(d, dict) else "") or ""
-        kind = (d.get("error_type") or (err.get("type") if isinstance(err, dict) else None)) if isinstance(d, dict) else None
+        kind = (d.get("error_type") or (err.get("type") if isinstance(err, dict) else None) or d.get("type")
+                ) if isinstance(d, dict) else None
         if msg and isinstance(kind, str) and kind:
             msg = f"{msg} ({kind})"
     except ValueError:
@@ -584,17 +601,18 @@ def gateway_message(e):
 
 
 def ask(fn, *args, **kw):
-    """fn(*args, **kw), a gateway call: paced by PACER; a 429 is RateLimited."""
+    """fn(*args, **kw), a gateway call: paced by PACER; a 429 is RateLimited,
+    a 402 BudgetExhausted (both GatewayStop)."""
     PACER.wait()
     try:
         return fn(*args, **kw)
     except urllib.error.HTTPError as e:
-        if e.code == 429:
+        if e.code in STOPS:
             try:
                 msg = gateway_message(e)
             finally:
                 e.close()
-            raise RateLimited(msg) from None
+            raise STOPS[e.code](msg) from None
         raise
 
 
@@ -716,7 +734,7 @@ def text_takes(zs, base, meta, takes, todo):
             # the ghost's words need the checker to actually think
             effort=None if "ghost" in {ANGLES[t["angle"]][1] for t in new} else "low")
         verdict = zs["json_object"](check)
-    except RateLimited:  # ...but a spent quota stops the run
+    except GatewayStop:  # ...but a spent quota or budget stops the run
         raise
     except Exception as e:  # one painting failing shouldn't stop the rest
         print(f"plaques: {meta['id']}: {type(e).__name__}: {printable(e)[:120]}")
@@ -741,33 +759,73 @@ def read_plaque(out_path):
     return have, [t for t in have.get("takes", []) if isinstance(t.get("angle"), int)]
 
 
-def drop_angles(angles):
-    """--redo-angle: remove existing takes with these angles from every plaque
-    (and forget any "no take for this one" for them, so they're asked again)."""
-    for out_path in sorted(glob.glob(os.path.join(CACHE, "*.plaque.json"))):
-        have, _ = read_plaque(out_path)
-        if not have:
-            continue
-        takes = have.get("takes", [])
-        keep = [t for t in takes if t.get("angle") not in angles]
-        none = [i for i in have.get("no_take", []) if i not in angles]
-        if len(keep) < len(takes) or len(none) < len(have.get("no_take", [])):
-            write_plaque(out_path, have | {"no_take": none}, keep)
-            print(f"plaques: {os.path.basename(out_path)}: dropped {len(takes) - len(keep)} take(s)")
+# --redo-angle N regenerates angle N everywhere without deleting first: the
+# old take stays until its replacement has passed the checker (a failed or
+# rejected one leaves it). A redo has an id, the time it began, kept in
+# CACHE/redo ({"N": id}) while it runs; a plaque records each angle it has
+# been redone for in "redone" ({"N": id}). Takes whose plaque lacks the
+# current id are stale: queued, and left out of "already said". A run that
+# gets through its whole queue ends the redo (removes it from CACHE/redo); a
+# run cut short (429, 402, --budget, a crash) leaves it, so the next
+# --redo-angle N resumes it and skips the paintings already redone.
+def redo_path():
+    return os.path.join(CACHE, "redo")  # not *.json: every *.json here is a painting
 
 
-def queue(only=None):
+def read_redo():
+    try:
+        with open(redo_path()) as f:
+            d = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    return {k: v for k, v in d.items() if isinstance(v, str)} if isinstance(d, dict) else {}
+
+
+def start_redo(angles):
+    """--redo-angle: begin a redo of these angles, or resume an unfinished
+    one. Returns {angle: redo id}."""
+    pending = read_redo()
+    now = datetime.datetime.now().isoformat()  # microseconds: a redo right after one is a new one
+    redo = {a: pending.get(str(a), now) for a in sorted(angles)}
+    for a, rid in redo.items():
+        print(f"plaques: {'resuming' if str(a) in pending else 'starting'} redo of angle {a} (since {rid})")
+    if any(str(a) not in pending for a in redo):
+        write_atomic(redo_path(), json.dumps(pending | {str(a): rid for a, rid in redo.items()}).encode())
+    return redo
+
+
+def end_redo(angles):
+    pending = read_redo()
+    left = {k: v for k, v in pending.items() if k not in {str(a) for a in angles}}
+    if left:
+        write_atomic(redo_path(), json.dumps(left).encode())
+    else:
+        try:
+            os.remove(redo_path())
+        except OSError:
+            pass
+    print(f"plaques: redo of angle {', '.join(map(str, sorted(angles)))} done")
+
+
+def stale(have, angle, redo):
+    """Whether this plaque's angle is still to be redone in the redo `redo`."""
+    redone = have.get("redone")
+    return angle in redo and (redone.get(str(angle)) if isinstance(redone, dict) else None) != redo[angle]
+
+
+def queue(only=None, redo={}):
     """The missing takes, in the order to write them: every painting's
     BASELINE first, then the rest round-robin across paintings, each
     painting's own angles in a shuffle seeded by its id (stable run to run).
-    Angles with a take, or marked "no_take", aren't missing."""
+    Angles with a take, or marked "no_take", aren't missing, unless they're
+    stale in the redo `redo` ({angle: redo id})."""
     order = [i for i in range(VARIANTS) if i != BASELINE]
     baselines, rest = [], []
     for path in sorted(glob.glob(os.path.join(CACHE, "*.json"))):
         if path.endswith(".plaque.json"):
             continue
         have, takes = read_plaque(path[:-5] + ".plaque.json")
-        done = {t["angle"] for t in takes} | set(have.get("no_take", []))
+        done = ({t["angle"] for t in takes} | set(have.get("no_take", []))) - {i for i in redo if stale(have, i, redo)}
         missing = {i for i in range(VARIANTS) if i not in done and (not only or i in only)}
         if BASELINE in missing:
             baselines.append((path, BASELINE))
@@ -777,12 +835,15 @@ def queue(only=None):
     return baselines + [q[k] for k in range(max(map(len, rest), default=0)) for q in rest if k < len(q)]
 
 
-def write_take(zs, base, path, angle):
-    """Write one take (angle) for the painting at path, if it's still missing.
-    Returns True if a model was asked (it counts toward the budget)."""
+def write_take(zs, base, path, angle, redo={}):
+    """Write one take (angle) for the painting at path, if it's still missing
+    or stale in the redo `redo` (then a new take that passes replaces the
+    old one; a failed or rejected one leaves it). Returns True if a model
+    was asked (it counts toward the budget)."""
     out_path = path[:-5] + ".plaque.json"
     have, takes = read_plaque(out_path)
-    if angle in {t["angle"] for t in takes} | set(have.get("no_take", [])):
+    redoing = stale(have, angle, redo)
+    if not redoing and angle in {t["angle"] for t in takes} | set(have.get("no_take", [])):
         return False  # another run got there first
     with open(path) as f:
         meta = json.load(f)
@@ -799,7 +860,7 @@ def write_take(zs, base, path, angle):
             return False
         try:
             take, verdict = vision_take(zs, base, angle, png)
-        except RateLimited:
+        except GatewayStop:
             raise
         except Exception as e:
             print(f"plaques: {meta['id']}: angle {angle}: {type(e).__name__}: {printable(e)[:120]}")
@@ -810,41 +871,58 @@ def write_take(zs, base, path, angle):
             print(f"plaques: {meta['id']}: angle {angle} rejected: {printable(verdict.get('reason', ''))[:140]}")
     else:
         asked = True
-        kept, gen, ver, declined = text_takes(zs, base, meta, takes, [angle])
+        said = [t for t in takes if not stale(have, t["angle"], redo)]  # stale ones are being replaced
+        kept, gen, ver, declined = text_takes(zs, base, meta, said, [angle])
         if kept:
             models = {"generator": gen, "verifier": ver}
         if declined:
             print(f"plaques: {meta['id']}: the generator found no {who} take ({meta.get('artist')!r})")
     if not (kept or declined):
-        return asked
+        return asked  # a redo leaves the old take, and the painting stays queued for it
     have, takes = read_plaque(out_path)  # again: a concurrent run may have written
+    mark = {}
+    if redoing:
+        if not stale(have, angle, redo):
+            return asked  # a concurrent run redid it first
+        if kept:  # only now, with its replacement in hand, does the old take go
+            takes = [t for t in takes if t["angle"] != angle]
+        redone = have.get("redone") if isinstance(have.get("redone"), dict) else {}
+        mark = {"redone": redone | {str(angle): redo[angle]}}
     kept = [t for t in kept if t["angle"] not in {t["angle"] for t in takes}]
-    none = sorted(set(have.get("no_take", [])) | set(declined))
     takes = sorted(takes + kept, key=lambda t: t["angle"])
-    write_plaque(out_path, have | models | ({"no_take": none} if none else {}), takes)
+    # an angle with a take isn't a "no take" (a redo's decline keeps the old take)
+    none = sorted((set(have.get("no_take", [])) | set(declined)) - {t["angle"] for t in takes})
+    out = have | models | mark
+    if none:
+        out["no_take"] = none
+    else:
+        out.pop("no_take", None)
+    write_plaque(out_path, out, takes)
     for t in kept:
         print(f"plaques: {meta['id']}: {len(takes)}/{VARIANTS} takes; +{t['angle']} {who}: {printable(t['spoken'])[:70]}...")
     return asked
 
 
-def plaques(only=None, budget=BUDGET):
+def plaques(only=None, budget=BUDGET, redo={}):
     """Write missing takes, up to `budget` of them (None: no limit), in
-    queue() order (or only angles in `only`): a museum wall text, and the
-    same facts spoken by that angle's character, every take fact-checked by
-    the verifier (a different vendor's model). Reactor angles are generated
-    and checked by looking at the image. A rejected take stays missing, so
-    the next run tries it again."""
+    queue() order (or only angles in `only`), and stale ones of the redo
+    `redo`: a museum wall text, and the same facts spoken by that angle's
+    character, every take fact-checked by the verifier (a different vendor's
+    model). Reactor angles are generated and checked by looking at the
+    image. A rejected take stays missing (or stale), so the next run tries
+    it again. Returns True if the whole queue was gone through."""
     zs = runpy.run_path(os.path.join(HERE, "zen-slogans.py"), run_name="zen_slogans")
     base = zs["gateway"]()
     if not base:
         print("plaques: no LLM gateway reachable; next run")
-        return
-    todo, spent = queue(only), 0
+        return False
+    todo, spent = queue(only, redo), 0
     for path, angle in todo:
         if budget is not None and spent >= budget:
             print(f"plaques: budget of {budget} spent; {len(todo) - todo.index((path, angle))} queued for next run")
-            break
-        spent += write_take(zs, base, path, angle)
+            return False
+        spent += write_take(zs, base, path, angle, redo)
+    return True
 
 
 def prune():
@@ -868,7 +946,8 @@ def main():
     ap.add_argument("--pin", action="store_true", help="with --add/--commons: never prune it")
     ap.add_argument("--if-stale", type=float, metavar="HOURS")
     ap.add_argument("--redo-angle", type=int, action="append", choices=range(VARIANTS), metavar="N",
-                    help="with --plaques: drop every take of angle N first, so it regenerates")
+                    help="with --plaques: regenerate every take of angle N (each old take is "
+                         "replaced only once its new one passes; an unfinished redo resumes)")
     ap.add_argument("--only-angle", type=int, action="append", choices=range(VARIANTS), metavar="N",
                     help="with --plaques: only write takes of angle N")
     ap.add_argument("--per-hour", type=int, metavar="N",
@@ -890,12 +969,18 @@ def main():
         return
     try:
         if args.plaques:
-            if args.redo_angle:
-                drop_angles(set(args.redo_angle))
+            only = set(args.only_angle or ())
+            # a redo angle outside --only-angle isn't worked on, so it isn't started either
+            redo = start_redo({a for a in args.redo_angle or () if not only or a in only})
             budget = args.budget if args.budget is not None else None if args.only_angle else BUDGET
             try:
-                plaques(set(args.only_angle or ()), budget)
-            except RateLimited as e:  # takes written so far are on disk (atomic writes)
+                if plaques(only, budget, redo) and redo:
+                    end_redo(redo)
+            except BudgetExhausted as e:  # takes written so far are on disk (atomic writes)
+                print(f"plaques: gateway budget exhausted (402), stopping; takes written so far are kept: "
+                      f"{printable(e)}", file=sys.stderr)
+                sys.exit(EX_UNAVAILABLE)
+            except RateLimited as e:
                 print(f"plaques: gateway rate limit (429), stopping; takes written so far are kept: "
                       f"{printable(e)}", file=sys.stderr)
                 sys.exit(EX_TEMPFAIL)
